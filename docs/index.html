@@ -2,270 +2,661 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Monitor Aste</title>
+<meta name="theme-color" content="#F3F5F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11171E" media="(prefers-color-scheme: dark)">
+<title>Aste</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f4f2ee; --panel:#ffffff; --ink:#1b1d1f; --muted:#6b6f75; --line:#e2ded6;
-  --accent:#b4471f; --accent-soft:#f6e3da; --ok:#2f7d4f; --warn:#b07a12; --hot:#c0392b;
-  --chip:#ece8e1; --shadow:0 1px 2px rgba(0,0,0,.05);
+  --paper:#F3F5F2; --surface:#FFFFFF; --sunk:#E8ECE8; --line:#D9DED9;
+  --ink:#18212B; --ink2:#4E5964; --ink3:#7C8690;
+  --cobalt:#2347A8; --cobalt-soft:#E3E9F8;
+  --tag:#F4C542; --tag-ink:#4A3A00; --tag-soft:#FBF0CC;
+  --red:#C9352A; --red-soft:#F9E1DE;
+  --amber:#B87309; --amber-soft:#F8ECD6;
+  --green:#1F8A5B; --green-soft:#DCF0E5;
+  --calm:#5D6B78; --calm-soft:#E6EAEE;
+  --r:10px; --shadow:0 1px 0 rgba(24,33,43,.06);
+  --side:272px;
 }
 @media (prefers-color-scheme: dark){
-  :root{--bg:#121315;--panel:#1b1d20;--ink:#ecebe8;--muted:#9a9ea5;--line:#2c2f33;
-  --accent:#e0794f;--accent-soft:#3a2219;--chip:#26292d;--ok:#5fbf86;--warn:#e0b04f;--hot:#ef6b5c;--shadow:none}
+  :root:not([data-theme="light"]){
+    --paper:#11171E; --surface:#18202A; --sunk:#0D1218; --line:#29333F;
+    --ink:#E9EDF1; --ink2:#AEB8C2; --ink3:#7C8792;
+    --cobalt:#7C9CF0; --cobalt-soft:#1D2A47;
+    --tag:#F4C542; --tag-ink:#2A2100; --tag-soft:#3A3115;
+    --red:#F07065; --red-soft:#3D1F1D; --amber:#E7A845; --amber-soft:#3A2C14;
+    --green:#5CC791; --green-soft:#16332A; --calm:#93A1AE; --calm-soft:#222C37;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#11171E; --surface:#18202A; --sunk:#0D1218; --line:#29333F;
+  --ink:#E9EDF1; --ink2:#AEB8C2; --ink3:#7C8792;
+  --cobalt:#7C9CF0; --cobalt-soft:#1D2A47;
+  --tag:#F4C542; --tag-ink:#2A2100; --tag-soft:#3A3115;
+  --red:#F07065; --red-soft:#3D1F1D; --amber:#E7A845; --amber-soft:#3A2C14;
+  --green:#5CC791; --green-soft:#16332A; --calm:#93A1AE; --calm-soft:#222C37;
+  --shadow:none;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "IBM Plex Sans",system-ui,sans-serif}
-.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
-header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
-.top{max-width:1240px;margin:0 auto;padding:14px 16px 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-h1{font-size:18px;margin:0;font-weight:600;letter-spacing:-.01em}
-h1 span{color:var(--accent)}
-.status{font-size:12.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
-.search{max-width:1240px;margin:0 auto;padding:0 16px 12px;display:flex;gap:8px;flex-wrap:wrap}
-input,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-input[type=search]{flex:1 1 260px}
-.chips{max-width:1240px;margin:0 auto;padding:0 16px 12px;display:flex;gap:6px;flex-wrap:wrap}
-.chip{border:1px solid transparent;background:var(--chip);color:var(--ink);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;user-select:none}
-.chip b{font-weight:500;color:var(--muted);margin-left:4px}
-.chip.on{background:var(--accent);color:#fff}
-.chip.on b{color:#ffd9c9}
-.chip.toggle.on{background:var(--ink);color:var(--bg)}
-main{max-width:1240px;margin:0 auto;padding:14px 16px 60px}
-.summary{color:var(--muted);font-size:13px;margin:0 0 10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:8px;position:relative}
-.card.new{border-color:var(--accent)}
-.meta{display:flex;gap:6px;flex-wrap:wrap;font-size:12px}
-.tag{background:var(--chip);border-radius:5px;padding:2px 7px;color:var(--muted)}
-.tag.src{font-weight:600}
-.tag.kw{background:var(--accent-soft);color:var(--accent)}
-.tag.nuovo{background:var(--accent);color:#fff}
-.title{font-weight:600;font-size:15px;line-height:1.35;margin:0;padding-right:30px}
-.title a{color:inherit;text-decoration:none}
-.title a:hover{text-decoration:underline}
-.desc{color:var(--muted);font-size:13px;margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.desc.open{-webkit-line-clamp:unset}
-.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-end;margin-top:auto;flex-wrap:wrap}
-.price{font-size:19px;font-weight:600}
-.price small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
-.when{text-align:right;font-size:13px}
-.when .cd{display:block;font-weight:600}
-.cd.soon{color:var(--hot)} .cd.mid{color:var(--warn)}
-.place{font-size:13px;color:var(--muted)}
-.star{position:absolute;top:10px;right:10px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--line);line-height:1;padding:4px}
-.star.on{color:#e3a008}
-.note{width:100%;font-size:13px;padding:6px 8px;display:none}
-.card.fav .note,.note.has{display:block}
-.thumb{width:100%;height:140px;object-fit:cover;border-radius:8px;background:var(--chip)}
-.more{display:block;margin:20px auto;padding:10px 22px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
-.empty{padding:60px 0;text-align:center;color:var(--muted)}
-.err{background:var(--accent-soft);color:var(--accent);padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px}
-@media (max-width:600px){.grid{grid-template-columns:1fr}.status{margin-left:0}}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.45 "Archivo",system-ui,sans-serif;font-variation-settings:"wdth" 100;font-feature-settings:"tnum" 1}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px;border-radius:6px}
+a{color:inherit}
+.wide{font-variation-settings:"wdth" 118}
+.narrow{font-variation-settings:"wdth" 80}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- testata ---------- */
+.top{max-width:1440px;margin:0 auto;padding:18px 20px 6px;display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{margin:0;font-size:34px;line-height:1;font-weight:800;font-variation-settings:"wdth" 125;letter-spacing:-.02em}
+.brand svg{width:26px;height:26px;color:var(--cobalt);transform:translateY(3px)}
+.health{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;align-items:center;font-size:13px;color:var(--ink2)}
+.src-dot{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+.src-dot i{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.src-dot.ko i{background:var(--red)}
+.src-dot.ko{border-color:var(--red);color:var(--red)}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:34px;height:34px;display:inline-grid;place-items:center}
+.iconbtn svg{width:17px;height:17px}
+
+/* ---------- striscia scadenze ---------- */
+.railwrap{max-width:1440px;margin:0 auto;padding:10px 20px 0}
+.railhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
+.railhead h2{margin:0;font-size:15px;font-weight:600}
+.railhead span{font-size:13px;color:var(--ink3)}
+.rail{display:grid;grid-template-columns:repeat(21,minmax(38px,1fr));gap:4px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.day{border:0;background:var(--surface);border-radius:8px;padding:6px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:96px;justify-content:flex-end;box-shadow:var(--shadow);position:relative}
+.day .bar{width:60%;border-radius:3px 3px 1px 1px;background:var(--calm);min-height:2px;transition:height .25s}
+.day.u2 .bar{background:var(--red)} .day.u7 .bar{background:var(--amber)}
+.day .n{font-size:13px;font-weight:700;font-variation-settings:"wdth" 110}
+.day .d{font-size:11px;color:var(--ink3);line-height:1.1;text-align:center}
+.day .d b{display:block;font-size:14px;color:var(--ink);font-weight:600}
+.day.today{outline:1.5px solid var(--ink);outline-offset:-1.5px}
+.day.on{background:var(--ink);color:var(--paper)}
+.day.on .d,.day.on .d b{color:var(--paper)} .day.on .bar{background:var(--tag)}
+.day:disabled{opacity:.45;cursor:default}
+
+/* ---------- impaginazione ---------- */
+.layout{max-width:1440px;margin:0 auto;padding:14px 20px 80px;display:grid;grid-template-columns:var(--side) 1fr;gap:22px;align-items:start}
+main{min-width:0}
+aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding-right:4px;scrollbar-width:thin}
+.fgroup{padding:12px 0;border-bottom:1px solid var(--line)}
+.fgroup:first-child{padding-top:0}
+.fgroup h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--ink2)}
+.search{position:relative}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--ink3)}
+.search input{width:100%;padding:10px 12px 10px 34px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface)}
+.opt{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;padding:5px 6px;border-radius:7px;text-align:left;font-size:14px}
+.opt:hover{background:var(--sunk)}
+.opt .ico{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;flex:none}
+.opt .ico svg{width:15px;height:15px}
+.opt .cnt{margin-left:auto;font-size:12.5px;color:var(--ink3);font-variation-settings:"wdth" 90}
+.opt[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.opt[aria-pressed="true"] .cnt{color:var(--paper);opacity:.7}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink2)}
+.field input,.field select{padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:14px;width:100%}
+.reset{border:0;background:none;color:var(--cobalt);padding:10px 0 0;font-size:13.5px;font-weight:500}
+
+/* ---------- barra risultati ---------- */
+.resbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13.5px;display:inline-flex;gap:7px;align-items:center}
+.pill b{font-weight:700;font-variation-settings:"wdth" 110}
+.pill[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.pill.p-red b{color:var(--red)} .pill.p-green b{color:var(--green)} .pill.p-tag b{color:var(--amber)}
+.pill[aria-pressed="true"] b{color:inherit}
+.resbar .sp{flex:1}
+.quick{display:contents}
+.count{font-size:13.5px;color:var(--ink2)}
+.count b{color:var(--ink);font-size:15px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:6px 10px;display:grid;place-items:center}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg svg{width:16px;height:16px}
+.sortsel{padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-size:13.5px}
+.filtersbtn{display:none}
+.chipsActive{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}
+.chipsActive button{border:0;background:var(--cobalt-soft);color:var(--cobalt);border-radius:999px;padding:4px 10px;font-size:13px}
+.alert{background:var(--red-soft);color:var(--red);padding:10px 14px;border-radius:var(--r);font-size:13.5px;margin-bottom:12px}
+
+/* ---------- cartellini (elenco) ---------- */
+.list{display:flex;flex-direction:column;gap:8px}
+.ticket{display:grid;grid-template-columns:86px 1fr auto;background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid transparent;cursor:pointer;position:relative;min-height:92px;text-align:left;width:100%;padding:0}
+.ticket:hover{border-color:var(--line)}
+.ticket.fav{border-color:var(--tag)}
+.stub{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border-right:2px dashed var(--paper);border-radius:var(--r) 0 0 var(--r);padding:8px 4px;position:relative}
+.stub::before,.stub::after{content:"";position:absolute;right:-7px;width:12px;height:12px;border-radius:50%;background:var(--paper)}
+.stub::before{top:-6px} .stub::after{bottom:-6px}
+.stub .big{font-size:30px;line-height:1;font-weight:800;font-variation-settings:"wdth" 112}
+.stub .unit{font-size:12px;font-weight:600}
+.stub .when{font-size:11.5px;opacity:.85;text-align:center;line-height:1.2;margin-top:3px}
+.u-red{background:var(--red-soft);color:var(--red)}
+.u-amber{background:var(--amber-soft);color:var(--amber)}
+.u-calm{background:var(--calm-soft);color:var(--calm)}
+.u-past{background:var(--sunk);color:var(--ink3)}
+.body{padding:11px 14px;min-width:0;display:flex;flex-direction:column;gap:4px}
+.meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink3)}
+.meta .cat{display:inline-flex;align-items:center;gap:5px;color:var(--ink2);font-weight:500}
+.meta .cat svg{width:14px;height:14px}
+.badge{border-radius:5px;padding:1px 6px;font-size:11.5px;font-weight:600}
+.b-new{background:var(--green-soft);color:var(--green)}
+.b-src{background:var(--sunk);color:var(--ink2);font-weight:500}
+.kw{background:var(--tag);color:var(--tag-ink);border-radius:5px;padding:1px 6px;font-size:11.5px;font-weight:600}
+.ttl{margin:0;font-size:15.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.place{font-size:13px;color:var(--ink2);display:flex;gap:5px;align-items:center;min-width:0}
+.place svg{width:13px;height:13px;flex:none;color:var(--ink3)}
+.place span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.notep{font-size:12.5px;color:var(--amber);font-style:italic}
+.price{padding:11px 16px 11px 6px;text-align:right;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:2px;min-width:132px}
+.price .v{font-size:22px;font-weight:700;font-variation-settings:"wdth" 118;letter-spacing:-.01em;white-space:nowrap}
+.price .s{font-size:12px;color:var(--ink3);white-space:nowrap}
+.price .rib{font-size:20px;font-weight:700;color:var(--green);font-variation-settings:"wdth" 118}
+.price .na{font-size:13px;color:var(--ink3)}
+.star{position:absolute;top:6px;right:8px;border:0;background:none;width:30px;height:30px;display:grid;place-items:center;color:var(--line);border-radius:50%}
+.star svg{width:18px;height:18px}
+.star[aria-pressed="true"]{color:var(--tag)}
+.ticket .price{padding-top:30px}
+
+/* ---------- schede (griglia) ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid transparent;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;position:relative;text-align:left;padding:0;width:100%}
+.card:hover{border-color:var(--line)}
+.card.fav{border-color:var(--tag)}
+.card .pic{aspect-ratio:16/10;background:var(--sunk);display:grid;place-items:center;position:relative;overflow:hidden}
+.card .pic img{width:100%;height:100%;object-fit:cover}
+.card .pic>svg{width:44px;height:44px;opacity:.55}
+.card .cd{position:absolute;left:8px;bottom:8px;border-radius:7px;padding:3px 8px;font-size:13px;font-weight:700;font-variation-settings:"wdth" 110}
+.card .body{gap:5px}
+.card .foot{display:flex;justify-content:space-between;align-items:flex-end;padding:0 14px 12px;gap:8px}
+.card .foot .v{font-size:19px;font-weight:700;font-variation-settings:"wdth" 118}
+.card .star{background:var(--surface);top:8px;right:8px;color:var(--ink3)}
+.card .star[aria-pressed="true"]{color:var(--tag)}
+
+.more{display:block;margin:18px auto 0;padding:11px 26px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.empty{padding:70px 20px;text-align:center;color:var(--ink2)}
+.empty b{display:block;font-size:18px;color:var(--ink);margin-bottom:6px}
+
+/* ---------- pannello dettaglio ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,15,20,.38);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.scrim.on{opacity:1;pointer-events:auto}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--surface);z-index:21;transform:translateX(102%);transition:transform .24s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.12)}
+.panel.on{transform:none}
+.phead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.phead .sp{flex:1}
+.pbody{overflow:auto;padding:0 0 24px}
+.pcount{display:flex;align-items:center;gap:16px;padding:18px 22px}
+.pcount .big{font-size:52px;line-height:.9;font-weight:800;font-variation-settings:"wdth" 120}
+.pcount .lbl{font-size:14px;line-height:1.35}
+.pcount .lbl b{display:block;font-size:16px}
+.pimg{width:100%;max-height:300px;object-fit:cover;display:block;background:var(--sunk)}
+.psec{padding:16px 22px;border-top:1px solid var(--line)}
+.psec h2{margin:0 0 6px;font-size:20px;line-height:1.3;font-weight:700}
+.psec p{margin:0;color:var(--ink2);max-width:62ch;white-space:pre-line}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px;margin:0}
+.facts div{min-width:0}
+.facts dt{font-size:12.5px;color:var(--ink3)}
+.facts dd{margin:2px 0 0;font-weight:600;overflow-wrap:anywhere}
+.facts .hero dd{font-size:24px;font-variation-settings:"wdth" 118;font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:10px 16px;border:1px solid var(--line);background:var(--surface);text-decoration:none;font-weight:600;font-size:14px}
+.btn svg{width:16px;height:16px}
+.btn.primary{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.btn[aria-pressed="true"]{background:var(--tag-soft);border-color:var(--tag);color:var(--tag-ink)}
+textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(--line);background:var(--paper);padding:10px 12px;font:inherit;resize:vertical}
+.saved{font-size:12.5px;color:var(--green);height:16px;margin-top:4px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;z-index:30;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- mobile ---------- */
+@media (max-width:980px){
+  .layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 80px}
+  aside{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:82vh;background:var(--surface);z-index:22;padding:6px 18px 24px;border-radius:18px 18px 0 0;transform:translateY(103%);transition:transform .24s;box-shadow:0 -10px 30px rgba(0,0,0,.15)}
+  aside.on{transform:none}
+  aside .grab{display:block}
+  .filtersbtn{display:inline-flex}
+  .top{padding:14px 16px 4px}
+  .railwrap{padding:8px 16px 0}
+  .brand h1{font-size:28px}
+}
+.grab{display:none;width:44px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
+.sheethead{display:none}
+@media (max-width:980px){.sheethead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.sheethead h2{margin:0;font-size:18px}}
+@media (max-width:620px){
+  .top{flex-wrap:nowrap;align-items:center}
+  .health{flex-wrap:nowrap;min-width:0;justify-content:flex-end}
+  .health>span:first-child{white-space:nowrap;font-size:12px}
+  #railhint{display:none}
+  .resbar{flex-wrap:wrap}
+  .quick{order:5;width:100%;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px}
+  .quick::-webkit-scrollbar{display:none}
+  .quick .pill{flex:none}
+  .resbar .sp{display:none}
+  .count{margin-left:auto;font-size:12.5px}
+  .sortsel{max-width:132px;padding:7px 6px}
+  .card .pic{aspect-ratio:16/7}
+  .ticket{grid-template-columns:70px 1fr;min-height:0}
+  .stub .big{font-size:24px}
+  .price{grid-column:2;flex-direction:row;align-items:baseline;justify-content:flex-start;gap:8px;padding:0 14px 11px;min-width:0}
+  .ticket .price{padding-top:0}
+  .price .v{font-size:18px}
+  .ttl{padding-right:26px;font-size:15px}
+  .health .src-dot{display:none}
+  .health .src-dot.ko{display:inline-flex}
+  .rail{grid-template-columns:repeat(21,44px)}
+  .facts{grid-template-columns:1fr 1fr}
+  .pcount .big{font-size:42px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <div class="top">
-    <h1>Monitor <span>Aste</span></h1>
-    <div class="status" id="status">Caricamento…</div>
+
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6-3 3-6-6z"/><path d="M11 7l-7.5 7.5a1.5 1.5 0 0 0 0 2.1l1 1a1.5 1.5 0 0 0 2.1 0L14 10"/><path d="M13 21h8"/></svg>
+    <h1>Aste</h1>
   </div>
-  <div class="search">
-    <input type="search" id="q" placeholder="Cerca: rolex, gommone, Pescara, BMW…">
-    <select id="regione"><option value="">Tutte le regioni</option></select>
-    <input type="number" id="pmax" placeholder="Prezzo max €" min="0" step="500" style="width:140px">
-    <select id="entro">
-      <option value="">Qualsiasi scadenza</option>
-      <option value="3">Entro 3 giorni</option>
-      <option value="7">Entro 7 giorni</option>
-      <option value="30">Entro 30 giorni</option>
-    </select>
-    <select id="ordine">
-      <option value="scadenza">Scadenza più vicina</option>
-      <option value="nuove">Più recenti</option>
-      <option value="prezzo">Prezzo crescente</option>
-      <option value="prezzo_desc">Prezzo decrescente</option>
-    </select>
-  </div>
-  <div class="chips" id="cats"></div>
-  <div class="chips" id="srcs"></div>
-  <div class="chips" id="toggles">
-    <span class="chip toggle" data-t="nuovi">Nuove 24h</span>
-    <span class="chip toggle" data-t="kw">Solo parole chiave</span>
-    <span class="chip toggle" data-t="fav">★ Preferiti</span>
-  </div>
+  <div class="health" id="health">Carico i dati…</div>
+  <button class="iconbtn" id="theme" title="Cambia tema" aria-label="Cambia tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
 </header>
-<main>
-  <div id="errs"></div>
-  <p class="summary" id="summary"></p>
-  <div class="grid" id="grid"></div>
-  <button class="more" id="more" hidden>Mostra altre</button>
-</main>
+
+<section class="railwrap" aria-labelledby="railtitle">
+  <div class="railhead"><h2 id="railtitle">Chiusure nei prossimi 21 giorni</h2><span id="railhint">Tocca un giorno per vedere solo quelle aste</span></div>
+  <div class="rail" id="rail" role="group" aria-label="Aste per giorno di chiusura"></div>
+</section>
+
+<div class="layout">
+  <aside id="side" aria-label="Filtri">
+    <div class="grab"></div>
+    <div class="sheethead"><h2>Filtri</h2><button class="btn" id="closeSheet">Mostra risultati</button></div>
+    <div class="fgroup">
+      <label class="search"><span class="sr">Cerca</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="search" id="q" placeholder="rolex, gommone, Pescara…" autocomplete="off"></label>
+    </div>
+    <div class="fgroup"><h3>Categoria</h3><div id="cats"></div></div>
+    <div class="fgroup"><h3>Prezzo base</h3>
+      <div class="row2">
+        <label class="field">da €<input type="number" id="pmin" inputmode="numeric" min="0" step="100" placeholder="0"></label>
+        <label class="field">fino a €<input type="number" id="pmax" inputmode="numeric" min="0" step="100" placeholder="nessun limite"></label>
+      </div>
+      <label class="opt" style="margin-top:8px;cursor:pointer"><input type="checkbox" id="noprice" style="margin:0 2px"> Includi aste senza prezzo</label>
+    </div>
+    <div class="fgroup"><h3>Dove</h3>
+      <label class="field"><span class="sr">Regione</span><select id="regione"><option value="">Tutta Italia</option></select></label>
+    </div>
+    <div class="fgroup"><h3>Portale</h3><div id="srcs"></div></div>
+    <button class="reset" id="reset">Azzera tutti i filtri</button>
+  </aside>
+
+  <main>
+    <div id="alerts"></div>
+    <div class="resbar">
+      <button class="pill filtersbtn" id="openSheet"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtri</button>
+      <span class="quick"><button class="pill p-green" data-q="nuove" aria-pressed="false"><b id="cNew">0</b> nuove 24h</button>
+      <button class="pill p-red" data-q="urgenti" aria-pressed="false"><b id="cUrg">0</b> chiudono entro 48h</button>
+      <button class="pill p-tag" data-q="parole" aria-pressed="false"><b id="cKw">0</b> con le tue parole</button>
+      <button class="pill" data-q="preferiti" aria-pressed="false">★ <b id="cFav">0</b> seguite</button></span>
+      <span class="sp"></span>
+      <span class="count" id="count"></span>
+      <select class="sortsel" id="ordine" aria-label="Ordina">
+        <option value="scadenza">Chiudono prima</option>
+        <option value="nuove">Arrivate da poco</option>
+        <option value="prezzo">Prezzo più basso</option>
+        <option value="prezzo_desc">Prezzo più alto</option>
+      </select>
+      <div class="seg" role="group" aria-label="Vista">
+        <button data-v="list" aria-pressed="true" title="Elenco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <button data-v="grid" aria-pressed="false" title="Schede"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></button>
+      </div>
+    </div>
+    <div class="chipsActive" id="active"></div>
+    <div id="results"></div>
+    <button class="more" id="more" hidden>Mostra altre</button>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="panel" id="panel" role="dialog" aria-modal="true" aria-label="Dettaglio asta"></section>
+<div class="toast" id="toast" role="status"></div>
+
 <script>
 const $ = s => document.querySelector(s);
 const store = {
-  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 };
-let DATA = null, ASTE = [], shown = 60;
-const st = store.get('filtri', {q:'', regione:'', pmax:'', entro:'', ordine:'scadenza', cats:[], toggles:[]});
-let favs = store.get('preferiti', {});
-let notes = store.get('note', {});
+const DEF = {q:'', pmin:'', pmax:'', noprice:true, regione:'', cats:[], srcs:[], quick:[], day:'', ordine:'scadenza', vista:'list'};
+const st = Object.assign({}, DEF, store.get('aste.filtri', {}));
+let favs = store.get('preferiti', {}), notes = store.get('note', {});
+let DATA = null, ASTE = [], shown = 50, current = null;
 
-const euro = v => v == null ? '—' : '€ ' + Math.round(v).toLocaleString('it-IT');
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ICON = {
+  auto_moto:'<path d="M3 13l2-5h14l2 5v4h-2"/><path d="M5 17H3v-4h18"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M9.5 17h5"/>',
+  immobili:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  macchinari:'<circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  orologi_gioielli:'<circle cx="12" cy="12" r="6"/><path d="M12 9v3l2 1.5"/><path d="M9 6l.8-3.5h4.4L15 6M9 18l.8 3.5h4.4L15 18"/>',
+  moda_lusso:'<path d="M12 7.5a2 2 0 1 1 2-2"/><path d="M12 7.5V9L3 16.5a1 1 0 0 0 .7 1.7h16.6a1 1 0 0 0 .7-1.7L12 9"/>',
+  sport_outdoor:'<path d="M2 15c2.5 0 2.5-2.5 5-2.5s2.5 2.5 5 2.5 2.5-2.5 5-2.5 2.5 2.5 5 2.5"/><path d="M2 19.5c2.5 0 2.5-2.5 5-2.5s2.5 2.5 5 2.5 2.5-2.5 5-2.5 2.5 2.5 5 2.5"/><path d="M15 4c-3 2-4 5-3.5 8.5"/>',
+  nautica:'<path d="M12 3v12"/><path d="M12 4l6.5 9H12"/><path d="M3 16h18l-2.5 4h-13z"/>',
+  altro:'<path d="M3 7.5l9-4 9 4v9l-9 4-9-4z"/><path d="M3 7.5l9 4 9-4M12 11.5v9"/>'
+};
+const CAT_COL = {auto_moto:'#2347A8', immobili:'#6B5BA8', macchinari:'#5D6B78', orologi_gioielli:'#B87309', moda_lusso:'#B0436E', sport_outdoor:'#1F8A8A', nautica:'#1E6FB0', altro:'#7C8690'};
+const svg = (k, extra='') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${extra}>${ICON[k] || ICON.altro}</svg>`;
+const PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+const STAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1-4.5-4.3 6.1-.8z"/></svg>';
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const euro = v => v == null ? null : '€ ' + Math.round(v).toLocaleString('it-IT');
 const parseD = s => s ? new Date(s.length <= 10 ? s + 'T12:00' : s) : null;
+const dayKey = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const GG = ['dom','lun','mar','mer','gio','ven','sab'];
+const MM = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 
 function countdown(s){
-  const d = parseD(s); if (!d) return ['—',''];
+  const d = parseD(s);
+  if (!d) return {big:'?', unit:'', cls:'u-calm', h:Infinity};
   const h = (d - Date.now()) / 36e5;
-  if (h < 0) return ['in corso/scaduta', 'soon'];
-  if (h < 48) return [`tra ${Math.round(h)} ore`, 'soon'];
-  const g = Math.round(h / 24);
-  return [`tra ${g} giorni`, g <= 7 ? 'mid' : ''];
+  if (h < 0) return {big:'—', unit:'chiusa', cls:'u-past', h};
+  if (h < 1) return {big:Math.max(1, Math.round(h*60)), unit:'minuti', cls:'u-red', h};
+  if (h < 48) return {big:Math.round(h), unit: Math.round(h) === 1 ? 'ora' : 'ore', cls:'u-red', h};
+  const g = Math.floor(h / 24);
+  return {big:g, unit:'giorni', cls: g <= 7 ? 'u-amber' : 'u-calm', h};
 }
-function fmtData(s){
-  const d = parseD(s); if (!d) return '';
-  return d.toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'short'}) + (s.length > 10 ? ' ' + s.slice(11,16) : '');
+function whenText(s){
+  const d = parseD(s); if (!d) return 'data da verificare';
+  return `${GG[d.getDay()]} ${d.getDate()} ${MM[d.getMonth()]}` + (s.length > 10 ? ` ${s.slice(11,16)}` : '');
 }
+const place = a => { const p = [a.citta, a.provincia && a.provincia !== a.citta ? a.provincia : '', a.regione].filter(Boolean); return [...new Set(p)].join(', '); };
+const isNew = a => a.visto_il && (Date.now() - parseD(a.visto_il)) < 864e5;
 
 async function load(){
-  try{
+  try {
     const r = await fetch('data/aste.json?t=' + Date.now());
     if (!r.ok) throw new Error(r.status);
     DATA = await r.json();
-  }catch(e){
-    $('#status').textContent = 'Nessun dato ancora: il primo giro del monitor non è terminato.';
+  } catch(e) {
+    $('#health').textContent = '';
+    $('#results').innerHTML = '<div class="empty"><b>Nessun dato ancora</b>Il primo controllo dei portali non è finito. Ricarica la pagina tra qualche minuto.</div>';
     return;
   }
-  ASTE = DATA.aste || [];
-  const upd = new Date(DATA.aggiornato);
-  const fonti = Object.entries(DATA.fonti || {}).map(([k,v]) =>
-    `<span><span class="dot" style="background:var(${v.ok ? '--ok' : '--hot'})"></span>${k}${v.ok ? '' : ' (errore)'}</span>`).join('');
-  $('#status').innerHTML = `<span>Aggiornato ${upd.toLocaleString('it-IT',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>${fonti}<span class="mono">${ASTE.length} aste</span>`;
-  $('#errs').innerHTML = Object.entries(DATA.fonti || {}).filter(([,v]) => !v.ok)
-    .map(([k,v]) => `<div class="err">${esc(k)} non raggiungibile nell'ultimo giro: ${esc(v.errore)}. Restano le aste già raccolte.</div>`).join('');
-
-  const regs = [...new Set(ASTE.map(a => a.regione).filter(Boolean))].sort();
-  $('#regione').innerHTML += regs.map(r => `<option>${esc(r)}</option>`).join('');
-  const counts = {};
-  ASTE.forEach(a => counts[a.categoria] = (counts[a.categoria] || 0) + 1);
-  $('#cats').innerHTML = Object.entries(DATA.categorie).filter(([k]) => counts[k])
-    .map(([k,l]) => `<span class="chip" data-c="${k}">${esc(l)}<b>${counts[k]}</b></span>`).join('');
-
-  const fc = {};
-  ASTE.forEach(a => fc[a.fonte] = (fc[a.fonte] || 0) + 1);
-  $('#srcs').innerHTML = Object.entries(fc).sort((a,b) => b[1]-a[1])
-    .map(([k,n]) => `<span class="chip toggle" data-s="${esc(k)}">${esc(k)}<b>${n}</b></span>`).join('');
-  st.srcs = st.srcs || [];
-  document.querySelectorAll('#srcs .chip').forEach(c => c.classList.toggle('on', st.srcs.includes(c.dataset.s)));
-  for (const k of ['q','regione','pmax','entro','ordine']) $('#'+k).value = st[k] || ($('#'+k).tagName === 'SELECT' && k === 'ordine' ? 'scadenza' : '');
-  document.querySelectorAll('#cats .chip').forEach(c => c.classList.toggle('on', st.cats.includes(c.dataset.c)));
-  document.querySelectorAll('#toggles .chip').forEach(c => c.classList.toggle('on', st.toggles.includes(c.dataset.t)));
-  render();
+  const ieri = Date.now() - 2*36e5;
+  ASTE = (DATA.aste || []).filter(a => { const d = parseD(a.scadenza); return !d || d.getTime() > ieri || favs[a.id]; });
+  ASTE.forEach(a => { if (!a.prezzo_base) a.prezzo_base = null; if (!a.offerta_minima) a.offerta_minima = null; a._t = (a.titolo + ' ' + (a.descrizione||'') + ' ' + place(a) + ' ' + (a.tribunale||'') + ' ' + (a.categoria_portale||'')).toLowerCase(); a._d = a.scadenza ? dayKey(parseD(a.scadenza)) : ''; });
+  renderHealth(); buildSide(); syncControls(); render();
 }
 
-function filtered(){
+function renderHealth(){
+  const upd = new Date(DATA.aggiornato);
+  const fonti = Object.entries(DATA.fonti || {});
+  const ago = Math.round((Date.now() - upd) / 6e4);
+  const agoTxt = ago < 60 ? `${Math.max(ago,1)} min fa` : ago < 1440 ? `${Math.round(ago/60)} ore fa` : upd.toLocaleDateString('it-IT');
+  $('#health').innerHTML = `<span>Aggiornato ${agoTxt}</span>` + fonti.map(([k,v]) =>
+    `<span class="src-dot${v.ok ? '' : ' ko'}" title="${esc(v.ok ? (v.letti + ' lotti letti') : v.errore)}"><i></i>${esc(k)}</span>`).join('');
+  $('#alerts').innerHTML = fonti.filter(([,v]) => !v.ok).map(([k,v]) =>
+    `<div class="alert"><b>${esc(k)}</b>: ${esc(v.errore)}</div>`).join('');
+}
+
+function buildSide(){
+  const cc = {}, sc = {}, rg = new Set();
+  ASTE.forEach(a => { cc[a.categoria] = (cc[a.categoria]||0) + 1; sc[a.fonte] = (sc[a.fonte]||0) + 1; if (a.regione) rg.add(a.regione); });
+  $('#cats').innerHTML = Object.entries(DATA.categorie).filter(([k]) => cc[k]).map(([k,l]) =>
+    `<button class="opt" data-cat="${k}" aria-pressed="false"><span class="ico" style="background:${CAT_COL[k]}22;color:${CAT_COL[k]}">${svg(k)}</span>${esc(l)}<span class="cnt">${cc[k].toLocaleString('it-IT')}</span></button>`).join('');
+  $('#srcs').innerHTML = Object.entries(sc).sort((a,b) => b[1]-a[1]).map(([k,n]) =>
+    `<button class="opt" data-src="${esc(k)}" aria-pressed="false">${esc(k)}<span class="cnt">${n.toLocaleString('it-IT')}</span></button>`).join('');
+  $('#regione').innerHTML = '<option value="">Tutta Italia</option>' + [...rg].sort().map(r => `<option>${esc(r)}</option>`).join('');
+}
+
+function syncControls(){
+  for (const k of ['q','pmin','pmax','regione','ordine']) $('#'+k).value = st[k] || (k === 'ordine' ? 'scadenza' : '');
+  $('#noprice').checked = !!st.noprice;
+  document.querySelectorAll('[data-cat]').forEach(b => b.setAttribute('aria-pressed', st.cats.includes(b.dataset.cat)));
+  document.querySelectorAll('[data-src]').forEach(b => b.setAttribute('aria-pressed', st.srcs.includes(b.dataset.src)));
+  document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', st.quick.includes(b.dataset.q)));
+  document.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', st.vista === b.dataset.v));
+}
+
+function filtered(skipDay){
   const words = st.q.toLowerCase().split(/\s+/).filter(Boolean);
-  const pmax = parseFloat(st.pmax);
-  const entro = parseInt(st.entro);
-  const now = Date.now();
-  const T = new Set(st.toggles);
-  const srcs = st.srcs || [];
-  let out = ASTE.filter(a => {
+  const pmin = parseFloat(st.pmin), pmax = parseFloat(st.pmax);
+  const Q = new Set(st.quick), now = Date.now();
+  return ASTE.filter(a => {
     if (st.cats.length && !st.cats.includes(a.categoria)) return false;
+    if (st.srcs.length && !st.srcs.includes(a.fonte)) return false;
     if (st.regione && a.regione !== st.regione) return false;
-    if (!isNaN(pmax) && a.prezzo_base != null && a.prezzo_base > pmax) return false;
-    if (srcs.length && !srcs.includes(a.fonte)) return false;
-    if (T.has('fav') && !favs[a.id]) return false;
-    if (T.has('kw') && !(a.parole && a.parole.length)) return false;
-    if (T.has('nuovi') && (now - parseD(a.visto_il)) > 864e5) return false;
-    if (entro) { const d = parseD(a.scadenza); if (!d || d - now > entro * 864e5) return false; }
-    if (words.length) {
-      const t = (a.titolo + ' ' + a.descrizione + ' ' + a.citta + ' ' + a.provincia + ' ' + a.regione + ' ' + a.tribunale).toLowerCase();
-      if (!words.every(w => t.includes(w))) return false;
-    }
+    if (a.prezzo_base == null) { if ((!isNaN(pmin) || !isNaN(pmax)) && !st.noprice) return false; }
+    else { if (!isNaN(pmin) && a.prezzo_base < pmin) return false; if (!isNaN(pmax) && a.prezzo_base > pmax) return false; }
+    if (Q.has('nuove') && !isNew(a)) return false;
+    if (Q.has('parole') && !(a.parole && a.parole.length)) return false;
+    if (Q.has('preferiti') && !favs[a.id]) return false;
+    if (Q.has('urgenti')) { const d = parseD(a.scadenza); if (!d || d - now > 48*36e5 || d < now) return false; }
+    if (!skipDay && st.day && a._d !== st.day) return false;
+    for (const w of words) if (!a._t.includes(w)) return false;
     return true;
   });
+}
+
+function sortList(list){
   const s = st.ordine;
-  out.sort((a,b) =>
-    s === 'nuove' ? (b.visto_il || '').localeCompare(a.visto_il || '') || (b.pubblicata||'').localeCompare(a.pubblicata||'') :
+  return list.sort((a,b) =>
+    s === 'nuove' ? (b.visto_il||'').localeCompare(a.visto_il||'') || (b.pubblicata||'').localeCompare(a.pubblicata||'') :
     s === 'prezzo' ? (a.prezzo_base ?? 1e12) - (b.prezzo_base ?? 1e12) :
     s === 'prezzo_desc' ? (b.prezzo_base ?? -1) - (a.prezzo_base ?? -1) :
     (a.scadenza || '9999').localeCompare(b.scadenza || '9999'));
-  return out;
 }
 
-function card(a){
-  const [cd, cls] = countdown(a.scadenza);
-  const nuovo = (Date.now() - parseD(a.visto_il)) < 864e5;
-  const luogo = [a.citta, a.provincia && a.provincia !== a.citta ? a.provincia : '', a.regione].filter(Boolean).join(', ');
-  const prezzo = a.prezzo_base != null
-    ? `${euro(a.prezzo_base)}${a.offerta_minima && a.offerta_minima !== a.prezzo_base ? `<small>offerta min. ${euro(a.offerta_minima)}</small>` : ''}`
-    : (a.ribasso_pct ? `−${a.ribasso_pct}%<small>ribasso sul prezzo</small>` : `<small>prezzo nella scheda</small>`);
-  const fav = !!favs[a.id];
-  return `<article class="card${nuovo ? ' new' : ''}${fav ? ' fav' : ''}" data-id="${esc(a.id)}">
-    <button class="star${fav ? ' on' : ''}" title="Preferito" data-fav="${esc(a.id)}">★</button>
-    ${a.immagine ? `<img class="thumb" loading="lazy" src="${esc(a.immagine)}" alt="">` : ''}
-    <div class="meta">
-      ${nuovo ? '<span class="tag nuovo">Nuova</span>' : ''}
-      <span class="tag src">${esc(a.fonte)}</span>
-      <span class="tag">${esc(DATA.categorie[a.categoria] || a.categoria)}</span>
-      ${(a.parole || []).map(p => `<span class="tag kw">${esc(p)}</span>`).join('')}
-    </div>
-    <h2 class="title"><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.titolo)}</a></h2>
-    ${a.descrizione ? `<p class="desc" data-desc>${esc(a.descrizione)}</p>` : ''}
-    <div class="place">${esc(luogo)}${a.tribunale ? (luogo ? ' · ' : '') + esc(a.tribunale) : ''}${a.procedura ? ` · proc. ${esc(a.procedura)}` : ''}${a.lotto ? ` · ${esc(a.lotto)}` : ''}</div>
-    <div class="row">
-      <div class="price">${prezzo}</div>
-      <div class="when"><span class="cd ${cls}">${cd}</span>${fmtData(a.scadenza)}</div>
-    </div>
-    <input class="note${notes[a.id] ? ' has' : ''}" data-note="${esc(a.id)}" placeholder="Note (custode, sopralluogo, offerta max…)" value="${esc(notes[a.id] || '')}">
+function renderRail(base){
+  const counts = {};
+  base.forEach(a => { if (a._d) counts[a._d] = (counts[a._d]||0) + 1; });
+  const days = [], t0 = new Date(); t0.setHours(12,0,0,0);
+  for (let i = 0; i < 21; i++) { const d = new Date(t0); d.setDate(t0.getDate() + i); days.push(d); }
+  const max = Math.max(1, ...days.map(d => counts[dayKey(d)] || 0));
+  $('#rail').innerHTML = days.map((d,i) => {
+    const k = dayKey(d), n = counts[k] || 0, u = i <= 1 ? 'u2' : i <= 7 ? 'u7' : '';
+    const lbl = i === 0 ? 'oggi' : i === 1 ? 'domani' : GG[d.getDay()];
+    return `<button class="day ${u}${i===0?' today':''}${st.day===k?' on':''}" data-day="${k}" ${n?'':'disabled'} aria-pressed="${st.day===k}" aria-label="${n} aste chiudono ${lbl} ${d.getDate()} ${MM[d.getMonth()]}">
+      <span class="n">${n || ''}</span><span class="bar" style="height:${n ? 6 + Math.round(42 * n / max) : 2}px"></span>
+      <span class="d">${lbl}<b>${d.getDate()}</b></span></button>`;
+  }).join('');
+  $('#railhint').textContent = st.day ? `Mostro solo il ${whenText(st.day)}. Tocca di nuovo per togliere.` : 'Tocca un giorno per vedere solo quelle aste';
+}
+
+function priceHtml(a){
+  if (a.prezzo_base != null) return `<span class="v">${euro(a.prezzo_base)}</span>` + (a.offerta_minima && a.offerta_minima !== a.prezzo_base ? `<span class="s">offerta minima ${euro(a.offerta_minima)}</span>` : '<span class="s">prezzo base</span>');
+  if (a.ribasso_pct) return `<span class="rib">−${a.ribasso_pct}%</span><span class="s">ribasso sul prezzo</span>`;
+  return '<span class="na">prezzo nella scheda</span>';
+}
+function metaHtml(a){
+  return `<div class="meta"><span class="cat" style="color:${CAT_COL[a.categoria]}">${svg(a.categoria)}<span style="color:var(--ink2)">${esc(DATA.categorie[a.categoria] || a.categoria)}</span></span>
+    ${isNew(a) ? '<span class="badge b-new">nuova</span>' : ''}<span class="badge b-src">${esc(a.fonte)}</span>
+    ${(a.parole||[]).slice(0,4).map(p => `<span class="kw">${esc(p)}</span>`).join('')}</div>`;
+}
+function ticket(a){
+  const c = countdown(a.scadenza), fav = !!favs[a.id], pl = place(a) || a.tribunale || '';
+  return `<article class="ticket${fav?' fav':''}" data-id="${esc(a.id)}" tabindex="0">
+    <div class="stub ${c.cls}"><span class="big">${c.big}</span><span class="unit">${c.unit}</span><span class="when">${whenText(a.scadenza)}</span></div>
+    <div class="body">${metaHtml(a)}<h3 class="ttl">${esc(a.titolo)}</h3>
+      ${pl ? `<div class="place">${PIN}<span>${esc(pl)}</span></div>` : ''}
+      ${notes[a.id] ? `<div class="notep">${esc(notes[a.id])}</div>` : ''}</div>
+    <div class="price">${priceHtml(a)}</div>
+    <button class="star" data-fav="${esc(a.id)}" aria-pressed="${fav}" aria-label="Segui quest'asta">${STAR}</button>
   </article>`;
+}
+function card(a){
+  const c = countdown(a.scadenza), fav = !!favs[a.id], pl = place(a) || a.tribunale || '';
+  return `<article class="card${fav?' fav':''}" data-id="${esc(a.id)}" tabindex="0">
+    <div class="pic" style="color:${CAT_COL[a.categoria]}">${a.immagine ? `<img loading="lazy" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : svg(a.categoria)}
+      <span class="cd ${c.cls}">${c.big} ${c.unit}</span></div>
+    <div class="body">${metaHtml(a)}<h3 class="ttl">${esc(a.titolo)}</h3>${pl ? `<div class="place">${PIN}<span>${esc(pl)}</span></div>` : ''}</div>
+    <div class="foot"><div class="price" style="padding:0;align-items:flex-start;text-align:left;min-width:0">${priceHtml(a)}</div><span class="place" style="font-size:12px">${whenText(a.scadenza)}</span></div>
+    <button class="star" data-fav="${esc(a.id)}" aria-pressed="${fav}" aria-label="Segui quest'asta">${STAR}</button>
+  </article>`;
+}
+
+function renderActive(){
+  const chips = [];
+  if (st.q) chips.push(['q', `“${st.q}”`]);
+  st.cats.forEach(c => chips.push(['cat:'+c, DATA.categorie[c] || c]));
+  st.srcs.forEach(s => chips.push(['src:'+s, s]));
+  if (st.regione) chips.push(['regione', st.regione]);
+  if (st.pmin) chips.push(['pmin', 'da € ' + Number(st.pmin).toLocaleString('it-IT')]);
+  if (st.pmax) chips.push(['pmax', 'fino a € ' + Number(st.pmax).toLocaleString('it-IT')]);
+  if (st.day) chips.push(['day', 'chiude ' + whenText(st.day)]);
+  $('#active').innerHTML = chips.map(([k,l]) => `<button data-rm="${esc(k)}" aria-label="Togli filtro ${esc(l)}">${esc(l)} ✕</button>`).join('');
 }
 
 function render(){
   if (!DATA) return;
-  const list = filtered();
-  $('#summary').textContent = `${list.length.toLocaleString('it-IT')} aste trovate`;
-  $('#grid').innerHTML = list.length ? list.slice(0, shown).map(card).join('') : '<div class="empty">Nessuna asta con questi filtri.</div>';
+  const noDay = filtered(true);
+  renderRail(noDay);
+  const list = sortList(st.day ? noDay.filter(a => a._d === st.day) : noDay);
+  const now = Date.now();
+  $('#cNew').textContent = ASTE.filter(isNew).length.toLocaleString('it-IT');
+  $('#cUrg').textContent = ASTE.filter(a => { const d = parseD(a.scadenza); return d && d > now && d - now <= 48*36e5; }).length.toLocaleString('it-IT');
+  $('#cKw').textContent = ASTE.filter(a => a.parole && a.parole.length).length.toLocaleString('it-IT');
+  $('#cFav').textContent = Object.keys(favs).filter(id => ASTE.some(a => a.id === id)).length;
+  $('#count').innerHTML = `<b>${list.length.toLocaleString('it-IT')}</b> aste`;
+  renderActive();
+  const slice = list.slice(0, shown);
+  if (!list.length) {
+    $('#results').innerHTML = st.quick.includes('preferiti')
+      ? '<div class="empty"><b>Non segui ancora nessuna asta</b>Tocca la stella su un\'asta per ritrovarla qui.</div>'
+      : '<div class="empty"><b>Nessuna asta con questi filtri</b>Togli qualche filtro qui sopra o allarga il prezzo.</div>';
+  } else {
+    $('#results').innerHTML = st.vista === 'grid'
+      ? `<div class="grid">${slice.map(card).join('')}</div>`
+      : `<div class="list">${slice.map(ticket).join('')}</div>`;
+  }
   $('#more').hidden = list.length <= shown;
+  $('#more').textContent = `Mostra altre ${Math.min(50, list.length - shown)} di ${(list.length - shown).toLocaleString('it-IT')}`;
 }
 
-function save(){ store.set('filtri', st); shown = 60; render(); }
-for (const k of ['q','regione','pmax','entro','ordine']) {
-  $('#'+k).addEventListener(k === 'q' || k === 'pmax' ? 'input' : 'change', e => { st[k] = e.target.value; save(); });
+let tmr;
+function save(debounce){
+  store.set('aste.filtri', st); shown = 50;
+  clearTimeout(tmr);
+  if (debounce) tmr = setTimeout(render, 140); else render();
 }
-$('#cats').addEventListener('click', e => {
-  const c = e.target.closest('.chip'); if (!c) return;
-  const k = c.dataset.c; st.cats = st.cats.includes(k) ? st.cats.filter(x => x !== k) : [...st.cats, k];
-  c.classList.toggle('on'); save();
+
+/* ---------- dettaglio ---------- */
+function openPanel(id){
+  const a = ASTE.find(x => x.id === id); if (!a) return;
+  current = a;
+  const c = countdown(a.scadenza), fav = !!favs[a.id];
+  const facts = [
+    ['Prezzo base', euro(a.prezzo_base), true],
+    ['Offerta minima', euro(a.offerta_minima)],
+    ['Rilancio minimo', euro(a.rialzo_minimo)],
+    ['Ribasso', a.ribasso_pct ? `−${a.ribasso_pct}%` : null],
+    ['Chiusura', whenText(a.scadenza)],
+    ['Dove', place(a) || null],
+    ['Procedura', [a.tribunale, a.procedura ? 'n. ' + a.procedura : ''].filter(Boolean).join(' ') || null],
+    ['Lotto', a.lotto],
+    ['Categoria sul portale', a.categoria_portale],
+    ['Pubblicata', a.pubblicata ? whenText(a.pubblicata) : null],
+  ].filter(f => f[1]);
+  $('#panel').innerHTML = `
+    <div class="phead"><span class="badge b-src">${esc(a.fonte)}</span>${isNew(a) ? '<span class="badge b-new">nuova</span>' : ''}<span class="sp"></span>
+      <button class="iconbtn" id="pclose" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="pbody">
+      <div class="pcount ${c.cls}"><span class="big">${c.big}</span><span class="lbl"><b>${c.unit}</b>${whenText(a.scadenza)}</span></div>
+      ${a.immagine ? `<img class="pimg" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : ''}
+      <div class="psec">${metaHtml(a)}<h2 style="margin-top:8px">${esc(a.titolo)}</h2>${a.descrizione && a.descrizione !== a.titolo ? `<p>${esc(a.descrizione)}</p>` : ''}</div>
+      <div class="psec"><dl class="facts">${facts.map(([k,v,h]) => `<div class="${h?'hero':''}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></div>
+      <div class="psec"><div class="actions">
+        <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Apri su ${esc(a.fonte)}</a>
+        <button class="btn" id="pfav" aria-pressed="${fav}">${STAR}${fav ? 'Seguita' : 'Segui'}</button>
+        <button class="btn" id="pics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Aggiungi al calendario</button>
+        ${place(a) ? `<a class="btn" href="https://www.google.com/maps/search/${encodeURIComponent(place(a))}" target="_blank" rel="noopener">${PIN}Mappa</a>` : ''}
+      </div></div>
+      <div class="psec"><label for="pnote" style="font-weight:600;display:block;margin-bottom:6px">Le tue note</label>
+        <textarea id="pnote" placeholder="Custode, sopralluogo, offerta massima, cauzione…">${esc(notes[a.id] || '')}</textarea><div class="saved" id="psaved"></div></div>
+    </div>`;
+  $('#panel').classList.add('on'); $('#scrim').classList.add('on');
+  $('#pclose').focus();
+}
+function closePanel(){ $('#panel').classList.remove('on'); $('#scrim').classList.remove('on'); if (current) { current = null; render(); } }
+
+function ics(a){
+  const d = parseD(a.scadenza); if (!d) return toast('Data di chiusura non disponibile');
+  const pad = n => String(n).padStart(2,'0');
+  const f = x => `${x.getFullYear()}${pad(x.getMonth()+1)}${pad(x.getDate())}T${pad(x.getHours())}${pad(x.getMinutes())}00`;
+  const start = new Date(d.getTime() - 60*6e4);
+  const txt = s => String(s||'').replace(/[\\,;]/g, m => '\\' + m).replace(/\n/g,'\\n');
+  const body = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Aste//IT','BEGIN:VEVENT',
+    'UID:' + a.id + '@aste', 'DTSTAMP:' + f(new Date()), 'DTSTART;TZID=Europe/Rome:' + f(start), 'DTEND;TZID=Europe/Rome:' + f(d),
+    'SUMMARY:' + txt('Chiude asta: ' + a.titolo.slice(0,80)), 'DESCRIPTION:' + txt(a.url + '\n' + (notes[a.id]||'')), 'URL:' + a.url,
+    'BEGIN:VALARM','TRIGGER:-PT24H','ACTION:DISPLAY','DESCRIPTION:Asta in chiusura domani','END:VALARM',
+    'BEGIN:VALARM','TRIGGER:-PT2H','ACTION:DISPLAY','DESCRIPTION:Asta in chiusura tra 2 ore','END:VALARM',
+    'END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const u = URL.createObjectURL(new Blob([body], {type:'text/calendar'}));
+  const l = document.createElement('a'); l.href = u; l.download = 'asta-' + a.id + '.ics'; document.body.appendChild(l); l.click(); l.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 2000);
+  toast('Evento scaricato: aprilo per aggiungerlo al calendario');
+}
+let tt; function toast(m){ const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2600); }
+
+function toggleFav(id){
+  if (favs[id]) delete favs[id]; else favs[id] = Date.now();
+  store.set('preferiti', favs);
+  return !!favs[id];
+}
+
+/* ---------- eventi ---------- */
+$('#q').addEventListener('input', e => { st.q = e.target.value; save(true); });
+for (const k of ['pmin','pmax']) $('#'+k).addEventListener('input', e => { st[k] = e.target.value; save(true); });
+$('#noprice').addEventListener('change', e => { st.noprice = e.target.checked; save(); });
+$('#regione').addEventListener('change', e => { st.regione = e.target.value; save(); });
+$('#ordine').addEventListener('change', e => { st.ordine = e.target.value; save(); });
+const tog = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
+$('#cats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; st.cats = tog(st.cats, b.dataset.cat); b.setAttribute('aria-pressed', st.cats.includes(b.dataset.cat)); save(); });
+$('#srcs').addEventListener('click', e => { const b = e.target.closest('[data-src]'); if (!b) return; st.srcs = tog(st.srcs, b.dataset.src); b.setAttribute('aria-pressed', st.srcs.includes(b.dataset.src)); save(); });
+document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { st.quick = tog(st.quick, b.dataset.q); b.setAttribute('aria-pressed', st.quick.includes(b.dataset.q)); save(); }));
+document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { st.vista = b.dataset.v; syncControls(); save(); }));
+$('#rail').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (!b || b.disabled) return; st.day = st.day === b.dataset.day ? '' : b.dataset.day; save(); });
+$('#active').addEventListener('click', e => {
+  const b = e.target.closest('[data-rm]'); if (!b) return; const k = b.dataset.rm;
+  if (k.startsWith('cat:')) st.cats = st.cats.filter(x => x !== k.slice(4));
+  else if (k.startsWith('src:')) st.srcs = st.srcs.filter(x => x !== k.slice(4));
+  else st[k] = '';
+  syncControls(); save();
 });
-$('#srcs').addEventListener('click', e => {
-  const c = e.target.closest('.chip'); if (!c) return;
-  const k = c.dataset.s; st.srcs = (st.srcs || []).includes(k) ? st.srcs.filter(x => x !== k) : [...(st.srcs || []), k];
-  c.classList.toggle('on'); save();
-});
-$('#toggles').addEventListener('click', e => {
-  const c = e.target.closest('.chip'); if (!c) return;
-  const k = c.dataset.t; st.toggles = st.toggles.includes(k) ? st.toggles.filter(x => x !== k) : [...st.toggles, k];
-  c.classList.toggle('on'); save();
-});
-$('#grid').addEventListener('click', e => {
+$('#reset').addEventListener('click', () => { const v = st.vista, o = st.ordine; Object.assign(st, JSON.parse(JSON.stringify(DEF)), {vista:v, ordine:o}); syncControls(); save(); });
+$('#more').addEventListener('click', () => { shown += 50; render(); });
+$('#results').addEventListener('click', e => {
   const f = e.target.closest('[data-fav]');
-  if (f) { const id = f.dataset.fav; if (favs[id]) delete favs[id]; else favs[id] = Date.now(); store.set('preferiti', favs);
-    f.classList.toggle('on'); f.closest('.card').classList.toggle('fav'); return; }
-  const d = e.target.closest('[data-desc]'); if (d) d.classList.toggle('open');
+  if (f) { e.stopPropagation(); const on = toggleFav(f.dataset.fav); f.setAttribute('aria-pressed', on); f.closest('[data-id]').classList.toggle('fav', on); toast(on ? 'Asta aggiunta a quelle che segui' : 'Non segui più quest\'asta'); $('#cFav').textContent = Object.keys(favs).length; return; }
+  const t = e.target.closest('[data-id]'); if (t) openPanel(t.dataset.id);
 });
-$('#grid').addEventListener('input', e => {
-  const n = e.target.closest('[data-note]'); if (!n) return;
-  notes[n.dataset.note] = n.value; if (!n.value) delete notes[n.dataset.note]; store.set('note', notes);
+$('#results').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('[data-id]')) openPanel(e.target.dataset.id); });
+$('#scrim').addEventListener('click', () => { closePanel(); $('#side').classList.remove('on'); });
+$('#panel').addEventListener('click', e => {
+  if (e.target.closest('#pclose')) return closePanel();
+  if (e.target.closest('#pics')) return ics(current);
+  const f = e.target.closest('#pfav'); if (f) { const on = toggleFav(current.id); f.setAttribute('aria-pressed', on); f.lastChild.textContent = on ? 'Seguita' : 'Segui'; }
 });
-$('#more').addEventListener('click', () => { shown += 60; render(); });
+let nt; $('#panel').addEventListener('input', e => {
+  if (e.target.id !== 'pnote' || !current) return;
+  const v = e.target.value.trim(); if (v) notes[current.id] = v; else delete notes[current.id];
+  clearTimeout(nt); nt = setTimeout(() => { store.set('note', notes); $('#psaved').textContent = 'Nota salvata su questo dispositivo'; }, 400);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); $('#side').classList.remove('on'); $('#scrim').classList.remove('on'); } if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); $('#q').focus(); } });
+$('#openSheet').addEventListener('click', () => { $('#side').classList.add('on'); $('#scrim').classList.add('on'); });
+$('#closeSheet').addEventListener('click', () => { $('#side').classList.remove('on'); $('#scrim').classList.remove('on'); });
+$('#theme').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const nx = cur === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = nx; store.set('tema', nx);
+});
+(() => { const t = store.get('tema', null); if (t) document.documentElement.dataset.theme = t; })();
+setInterval(() => { if (!current) render(); }, 60000);
 load();
 </script>
 </body>

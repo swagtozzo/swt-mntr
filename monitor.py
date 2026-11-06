@@ -62,7 +62,7 @@ CLASSIFICA = [
     ("nautica", r"\bbarca|\bbarche|gommon|natante|imbarcazion|motoscaf|fuoribordo|veliero|yacht|\bgozzo|cabinato"),
     ("sport_outdoor", r"\bsurf|\bsup\b|kitesurf|windsurf|\bbici|biciclett|e-?bike|casco|tuta moto|dainese|alpinestars|palestra|fitness|tapis|attrezzatura sportiv|\bski\b|\bsci\b|snowboard"),
     ("auto_moto", r"\bauto\b|autovettur|automobil|\bmoto\b|motocicl|motoveicol|scooter|ciclomotor|furgon|fiat|bmw|audi|mercedes|volkswagen|\bvw\b|ford|toyota|renault|peugeot|alfa romeo|porsche|ferrari|lamborghini|maserati|jeep|land rover|ducati|yamaha|honda|kawasaki|harley|vespa|piaggio|quad\b"),
-    ("macchinari", r"macchinar|attrezzatur|tornio|fresatric|centr[oi] di lavoro|escavator|muletto|carrell[oi] elevator|gru\b|compressor|pressa|impianto|utensil|trattor|rimorchi|semirimorchi|camion"),
+    ("macchinari", r"macchinar|macchine|attrezzatur|tornio|fresatric|centr[oi] di lavoro|escavator|muletto|carrell[oi] elevator|gru\b|compressor|pressa|impianto|utensil|trattor|rimorchi|semirimorchi|camion"),
     ("immobili", r"immobil|appartament|villa\b|villino|terreno|capannon|negozio|abitazion|fabbricat|box auto|garage"),
 ]
 CLASSIFICA = [(c, re.compile(p, re.I)) for c, p in CLASSIFICA]
@@ -86,8 +86,11 @@ def kw_regex(parole):
     return re.compile(pat, re.I)
 
 
-def classifica_testo(testo: str) -> str:
+def classifica_testo(testo: str, mobile: bool = False) -> str:
+    """mobile=True: il bene è sicuramente mobile, quindi mai 'immobili'."""
     for cat, rx in CLASSIFICA:
+        if mobile and cat == "immobili":
+            continue
         if rx.search(testo or ""):
             return cat
     return "altro"
@@ -165,7 +168,7 @@ def pvp_normalizza(x: dict, regioni: dict) -> dict:
     if x.get("tipoLotto") == "IMMOBILI":
         cat = "immobili"
     else:
-        cat = PVP_CAT.get(cat_pvp) or classifica_testo(testo)
+        cat = PVP_CAT.get(cat_pvp) or classifica_testo(testo, mobile=True)
     vendita = x.get("dataOraVendita") or x.get("dataVendita")
     return {
         "id": f"pvp-{x['id']}",
