@@ -618,8 +618,8 @@ class Lista:
                 continue
             if v["prezzo_max"] and a.get("prezzo_base") and a["prezzo_base"] > v["prezzo_max"]:
                 continue
-            if v["regioni"] and a.get("regione") and a["regione"].lower() not in v["regioni"]:
-                continue
+            if v["regioni"] and (a.get("regione") or "").lower() not in v["regioni"]:
+                continue   # se la voce ha delle regioni, un lotto senza regione nota non passa
             out.append(v["nome"])
         return out
 
