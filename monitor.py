@@ -593,7 +593,12 @@ def main():
 
     # --- fonti aggiuntive. Una fonte al suo primo giro non manda avvisi (caricherebbe tutto lo storico).
     stato = dati.get("stato") or {}
-    inizializzate = set(stato.get("fonti_inizializzate") or (["PVP", "Gobid"] if not primo_avvio else []))
+    inizializzate = set(stato.get("fonti_inizializzate") or (["PVP"] if not primo_avvio else []))
+    # Gobid conta come avviato solo dopo il primo invio dal PC (prima versione lo segnava per errore)
+    if not stato.get("gobid_ricevuto"):
+        inizializzate.discard("Gobid")
+    if esito_fonti.get("Gobid", {}).get("ok"):
+        stato["gobid_ricevuto"] = True
     elenco_completo = {}  # fonti che restituiscono tutte le aste attive: si possono togliere quelle sparite
 
     def raccogli(nome, generatore, completo=False):
