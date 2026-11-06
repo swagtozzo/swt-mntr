@@ -210,6 +210,10 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .btn svg{width:16px;height:16px}
 .btn.primary{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
 .btn[aria-pressed="true"]{background:var(--tag-soft);border-color:var(--tag);color:var(--tag-ink)}
+.psec.ai{background:var(--cobalt-soft)}
+.aih{margin:0 0 4px;font-size:16px;font-weight:700}
+.aip{margin:0 0 12px!important;font-size:13.5px}
+.btn.ai-go{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(--line);background:var(--paper);padding:10px 12px;font:inherit;resize:vertical}
 .saved{font-size:12.5px;color:var(--green);height:16px;margin-top:4px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;z-index:30;pointer-events:none}
@@ -571,6 +575,15 @@ function openPanel(id){
       ${a.immagine ? `<img class="pimg" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : ''}
       <div class="psec">${metaHtml(a)}<h2 style="margin-top:8px">${esc(a.titolo)}</h2>${a.descrizione && a.descrizione !== a.titolo ? `<p>${esc(a.descrizione)}</p>` : ''}</div>
       <div class="psec"><dl class="facts">${facts.map(([k,v,h]) => `<div class="${h?'hero':''}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></div>
+      <div class="psec ai">
+        <h3 class="aih">Valuta in un minuto</h3>
+        <p class="aip">Apre l'AI di Google con tutti i dati di questo lotto: valore di mercato, offerta massima, costi nascosti e rischi, mosse tattiche.</p>
+        <div class="actions">
+          <a class="btn ai-go" href="${esc(aiUrl(a))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.6L12 15l-1.8-4.4L5.5 9l4.7-1.4z"/><path d="M19 15l.8 2 2 .8-2 .7-.8 2-.7-2-2-.7 2-.8z"/></svg>Analisi AI</a>
+          ${a.immagine ? `<a class="btn" href="https://lens.google.com/uploadbyurl?url=${encodeURIComponent(a.immagine)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.5"/></svg>Google Lens</a>` : ''}
+          <button class="btn" id="pcopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>Copia domanda</button>
+        </div>
+      </div>
       <div class="psec"><div class="actions">
         <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Apri su ${esc(a.fonte)}</a>
         <button class="btn" id="pfav" aria-pressed="${fav}">${STAR}${fav ? 'Seguita' : 'Segui'}</button>
@@ -582,6 +595,33 @@ function openPanel(id){
     </div>`;
   $('#panel').classList.add('on'); $('#scrim').classList.add('on');
   $('#pclose').focus();
+}
+function aiPrompt(a){
+  const r = [];
+  r.push("Sei un esperto di aste giudiziarie e fallimentari in Italia. Valuta questo lotto per un acquirente privato (compra anche con partita IVA) e rispondi in italiano, sintetico, con questi punti:");
+  r.push("1) Valore di mercato stimato del bene usato, con una forbice e da dove viene (annunci, listini).");
+  r.push("2) Offerta massima consigliata, tenendo conto di diritti d'asta del portale, IVA se prevista, trasporto, ritiro e spese di trasferimento.");
+  r.push("3) Costi nascosti e rischi: stato del bene, documenti, vincoli, occupazione se immobile, tempi di ritiro.");
+  r.push("4) Mosse tattiche: offrire ora o aspettare il prossimo ribasso, quando rilanciare, cosa chiedere al custode o al curatore, cosa verificare prima.");
+  r.push("");
+  r.push("Lotto: " + a.titolo);
+  if (a.descrizione && a.descrizione !== a.titolo) r.push("Descrizione: " + a.descrizione.slice(0, 500));
+  if (a.prezzo_base != null) r.push("Prezzo base: " + euro(a.prezzo_base));
+  if (a.offerta_minima) r.push("Offerta minima: " + euro(a.offerta_minima));
+  if (a.rialzo_minimo) r.push("Rilancio minimo: " + euro(a.rialzo_minimo));
+  if (a.ribasso_pct) r.push("Ribasso attuale: " + a.ribasso_pct + "%");
+  if (a.scadenza) r.push("Chiusura: " + whenText(a.scadenza));
+  if (place(a)) r.push("Luogo: " + place(a));
+  if (a.tribunale) r.push("Procedura: " + a.tribunale + (a.procedura ? " n. " + a.procedura : ""));
+  if (a.lotto) r.push("Lotto n.: " + a.lotto);
+  r.push("Portale: " + a.fonte + " - " + a.url);
+  return r.join("\n");
+}
+function aiUrl(a){ return "https://www.google.com/search?udm=50&q=" + encodeURIComponent(aiPrompt(a).slice(0, 1800)); }
+async function copyPrompt(){
+  const t = aiPrompt(current);
+  try { await navigator.clipboard.writeText(t); toast('Domanda copiata: incollala dove vuoi'); }
+  catch(e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Domanda copiata'); } catch(_) { toast('Copia non riuscita'); } ta.remove(); }
 }
 function closePanel(){ $('#panel').classList.remove('on'); $('#scrim').classList.remove('on'); if (current) { current = null; render(); } }
 
@@ -641,6 +681,7 @@ $('#scrim').addEventListener('click', () => { closePanel(); $('#side').classList
 $('#panel').addEventListener('click', e => {
   if (e.target.closest('#pclose')) return closePanel();
   if (e.target.closest('#pics')) return ics(current);
+  if (e.target.closest('#pcopy')) return copyPrompt();
   const f = e.target.closest('#pfav'); if (f) { const on = toggleFav(current.id); f.setAttribute('aria-pressed', on); f.lastChild.textContent = on ? 'Seguita' : 'Segui'; }
 });
 let nt; $('#panel').addEventListener('input', e => {
