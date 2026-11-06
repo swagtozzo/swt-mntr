@@ -213,6 +213,9 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .psec.ai{background:var(--cobalt-soft)}
 .aih{margin:0 0 4px;font-size:16px;font-weight:700}
 .aip{margin:0 0 12px!important;font-size:13.5px}
+.sites{display:flex;flex-wrap:wrap;gap:6px}
+.sites a{font-size:13px;padding:5px 10px;border-radius:999px;background:var(--sunk);text-decoration:none;color:var(--ink2)}
+.sites a:hover{color:var(--cobalt)}
 .btn.ai-go{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(--line);background:var(--paper);padding:10px 12px;font:inherit;resize:vertical}
 .saved{font-size:12.5px;color:var(--green);height:16px;margin-top:4px}
@@ -394,7 +397,7 @@ async function load(){
   }
   const ieri = Date.now() - 2*36e5;
   ASTE = (DATA.aste || []).filter(a => { const d = parseD(a.scadenza); return !d || d.getTime() > ieri || favs[a.id]; });
-  ASTE.forEach(a => { if (!a.prezzo_base) a.prezzo_base = null; if (!a.offerta_minima) a.offerta_minima = null; a._t = (a.titolo + ' ' + (a.descrizione||'') + ' ' + place(a) + ' ' + (a.tribunale||'') + ' ' + (a.categoria_portale||'')).toLowerCase(); a._d = a.scadenza ? dayKey(parseD(a.scadenza)) : ''; });
+  ASTE.forEach(a => { if (!a.prezzo_base) a.prezzo_base = null; if (!a.offerta_minima) a.offerta_minima = null; if (!a.rialzo_minimo) a.rialzo_minimo = null; a._t = (a.titolo + ' ' + (a.descrizione||'') + ' ' + place(a) + ' ' + (a.tribunale||'') + ' ' + (a.categoria_portale||'')).toLowerCase(); a._d = a.scadenza ? dayKey(parseD(a.scadenza)) : ''; });
   renderHealth(); buildSide(); syncControls(); render();
 }
 
@@ -480,7 +483,7 @@ function priceHtml(a){
 }
 function metaHtml(a){
   return `<div class="meta"><span class="cat" style="color:${CAT_COL[a.categoria]}">${svg(a.categoria)}<span style="color:var(--ink2)">${esc(DATA.categorie[a.categoria] || a.categoria)}</span></span>
-    ${isNew(a) ? '<span class="badge b-new">nuova</span>' : ''}<span class="badge b-src">${esc(a.fonte)}</span>
+    ${isNew(a) ? '<span class="badge b-new">nuova</span>' : ''}<span class="badge b-src">${esc(a.fonte)}${gestore(a) ? ` › ${esc(gestore(a).nome)}` : ''}</span>
     ${(a.parole||[]).slice(0,4).map(p => `<span class="kw">${esc(p)}</span>`).join('')}</div>`;
 }
 function ticket(a){
@@ -585,16 +588,29 @@ function openPanel(id){
         </div>
       </div>
       <div class="psec"><div class="actions">
-        <a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Apri su ${esc(a.fonte)}</a>
+        ${gestore(a) ? `<a class="btn primary" href="${esc(gestore(a).url)}" target="_blank" rel="noopener">Fai l'offerta su ${esc(gestore(a).nome)}</a>
+          <a class="btn" href="${esc(a.url)}" target="_blank" rel="noopener">Apri su ${esc(a.fonte)}</a>`
+        : `<a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">Apri su ${esc(a.fonte)}</a>`}
         <button class="btn" id="pfav" aria-pressed="${fav}">${STAR}${fav ? 'Seguita' : 'Segui'}</button>
         <button class="btn" id="pics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Aggiungi al calendario</button>
         ${place(a) ? `<a class="btn" href="https://www.google.com/maps/search/${encodeURIComponent(place(a))}" target="_blank" rel="noopener">${PIN}Mappa</a>` : ''}
       </div></div>
+      ${portaliHtml(a)}
       <div class="psec"><label for="pnote" style="font-weight:600;display:block;margin-bottom:6px">Le tue note</label>
         <textarea id="pnote" placeholder="Custode, sopralluogo, offerta massima, cauzione…">${esc(notes[a.id] || '')}</textarea><div class="saved" id="psaved"></div></div>
     </div>`;
   $('#panel').classList.add('on'); $('#scrim').classList.add('on');
   $('#pclose').focus();
+}
+const gestore = a => (a.portali || []).find(p => p.tipo === 'V');
+function portaliHtml(a){
+  if (a.fonte !== 'PVP') return '';
+  const altri = (a.portali || []).filter(p => p.tipo !== 'V');
+  if (!a.portali) return `<div class="psec"><p class="aip" style="margin:0!important">Il portale dove fare l'offerta per quest'asta arriva con uno dei prossimi aggiornamenti. Intanto lo trovi nella scheda PVP.</p></div>`;
+  const g = gestore(a);
+  return `<div class="psec"><h3 class="aih">Dove si svolge</h3>
+    <p class="aip">${g ? `Le offerte si fanno su <b>${esc(g.nome)}</b>.` : (a.portali.length ? 'Vendita non telematica o presso il venditore: le modalità sono nell\'avviso.' : 'Nessun portale indicato sul PVP: le modalità sono nell\'avviso.')}${altri.length ? ' Pubblicata anche su:' : ''}</p>
+    ${altri.length ? `<div class="sites">${altri.map(p => `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.nome)}</a>`).join('')}</div>` : ''}</div>`;
 }
 function aiPrompt(a){
   const r = [];

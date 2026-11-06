@@ -119,6 +119,52 @@ PVP_BASE = "https://pvp.giustizia.it"
 PVP_API = PVP_BASE + "/ric-496b258c-986a1b71/ric-ms/ricerca/vendite"
 PVP_FILTRI = PVP_BASE + "/bo-5897bc47-986a1b71/bo-ms/filtriRicercaVendite"
 PVP_DETTAGLIO = PVP_BASE + "/pvp/it/detail_annuncio.page?idAnnuncio={id}"
+PVP_VENDITA = PVP_BASE + "/ve-3f723b85-986a1b71/ve-ms/vendite/{id}/restricted"
+
+
+def pvp_portali(s, pvp_id: str) -> list:
+    """Portali di un'asta PVP: V = dove si fa l'offerta (gestore), P = pubblicità, A = altri siti."""
+    r = s.get(PVP_VENDITA.format(id=pvp_id), timeout=30, headers={"Accept": "application/json"})
+    r.raise_for_status()
+    j = r.json()
+    b = j.get("body", j) if isinstance(j, dict) else {}
+    out, visti = [], set()
+    for x in sorted(b.get("siti") or [], key=lambda x: 0 if x.get("flagTipoSito") == "V" else 1):
+        url = (x.get("urlInserizione") or x.get("link") or "").replace("//it/", "/it/")
+        tipo = "V" if x.get("flagTipoSito") == "V" else "P"
+        dom = re.sub(r"^https?://(www\.)?", "", x.get("link") or url).split("/")[0]
+        if url and (tipo, dom) not in visti:
+            visti.add((tipo, dom))
+            out.append({"tipo": tipo, "nome": dom, "url": url})
+    for x in b.get("altriSiti") or []:
+        url = x.get("urlSito") or ""
+        dom = re.sub(r"^https?://(www\.)?", "", url).split("/")[0]
+        if url and not any(o["nome"] == dom for o in out):
+            out.append({"tipo": "A", "nome": dom, "url": url})
+    return out
+
+
+def pvp_arricchisci(aste: list, max_richieste: int = 1200):
+    """Aggiunge i portali alle aste PVP che non li hanno ancora: prima le nuove, poi quelle che chiudono prima."""
+    oggi_iso = oggi().isoformat()
+    da_fare = [a for a in aste if a["fonte"] == "PVP" and "portali" not in a
+               and (a.get("scadenza") or "9999")[:10] >= oggi_iso]
+    da_fare.sort(key=lambda a: (a.get("visto_il") or "") , reverse=True)
+    nuove = [a for a in da_fare if a.get("_nuova")]
+    resto = sorted((a for a in da_fare if not a.get("_nuova")), key=lambda a: a.get("scadenza") or "9999")
+    s = session()
+    fatte = errori = 0
+    for a in (nuove + resto)[:max_richieste]:
+        try:
+            a["portali"] = pvp_portali(s, a["id"].split("-", 1)[1])
+            fatte += 1
+        except Exception as e:  # noqa: BLE001
+            errori += 1
+            if errori >= 15:
+                log("  PVP portali: troppi errori, riprovo al prossimo giro", e)
+                break
+        time.sleep(0.2)
+    log(f"  PVP portali: aggiunti a {fatte} aste, {max(0, len(da_fare) - fatte)} da fare nei prossimi giri")
 
 
 def pvp_mappa_regioni(s) -> dict:
@@ -641,11 +687,23 @@ def main():
         prec = esistenti.get(a["id"])
         if prec:
             a["visto_il"] = prec.get("visto_il", adesso)
+            if "portali" in prec and "portali" not in a:
+                a["portali"] = prec["portali"]
         else:
             a["visto_il"] = adesso
+            a["_nuova"] = True
             if a["fonte"] in inizializzate:
                 nuovi.append(a)
         esistenti[a["id"]] = a
+
+    # --- portali delle aste PVP (dove si fa l'offerta), a blocchi per non pesare sul PVP
+    if attiva("pvp") and esito_fonti.get("PVP", {}).get("ok"):
+        try:
+            pvp_arricchisci(list(esistenti.values()), int(cfg.get("pvp_portali_per_giro", 1200)))
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+    for a in esistenti.values():
+        a.pop("_nuova", None)
 
     # --- rimuovi scadute e aste non più in elenco
     soglia = (oggi_d - dt.timedelta(days=1)).isoformat()
