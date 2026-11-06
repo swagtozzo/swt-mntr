@@ -25,6 +25,7 @@ from pathlib import Path
 
 import requests
 import yaml
+from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parent
 DATA_FILE = ROOT / "docs" / "data" / "aste.json"
@@ -255,6 +256,223 @@ def gobid_normalizza(x: dict) -> dict:
     }
 
 
+def vuoto(fonte: str, id_: str, titolo: str, url: str) -> dict:
+    """Scheletro di un lotto con tutti i campi."""
+    return {
+        "id": id_, "fonte": fonte, "titolo": titolo, "descrizione": "", "categoria": "altro",
+        "categoria_portale": "", "prezzo_base": None, "offerta_minima": None, "rialzo_minimo": None,
+        "ribasso_pct": None, "citta": "", "provincia": "", "regione": "", "lat": None, "lon": None,
+        "scadenza": None, "pubblicata": None, "tribunale": "", "procedura": None, "lotto": None,
+        "immagine": None, "url": url,
+    }
+
+
+MESI = {m: i for i, m in enumerate(["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio",
+                                    "agosto", "settembre", "ottobre", "novembre", "dicembre"], 1)}
+REGIONI = ["Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia Romagna", "Friuli Venezia Giulia", "Lazio",
+           "Liguria", "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", "Toscana",
+           "Trentino Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"]
+
+
+def regione_canonica(testo: str) -> str:
+    t = (testo or "").lower().replace("-", " ")
+    for r in REGIONI:
+        if r.lower() in t:
+            return r
+    return ""
+
+
+def data_it(s: str):
+    """'22 ottobre 2026 16:00' o '22/10/2026' -> ISO."""
+    s = (s or "").strip().lower()
+    m = re.search(r"(\d{1,2})\s+([a-z]+)\s+(\d{4})(?:\s+(\d{1,2}:\d{2}))?", s)
+    if m and m.group(2) in MESI:
+        d = dt.date(int(m.group(3)), MESI[m.group(2)], int(m.group(1))).isoformat()
+        return d + ("T" + m.group(4).zfill(5) if m.group(4) else "")
+    m = re.search(r"(\d{2})/(\d{2})/(\d{4})(?:\D+(\d{1,2}:\d{2}))?", s)
+    if m:
+        d = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+        return d + ("T" + m.group(4).zfill(5) if m.group(4) else "")
+    return None
+
+
+# ---------------------------------------------------------------- Agenzia del Demanio (veicoli e beni confiscati)
+
+DEMANIO = "https://www.agenziademanio.it"
+DEMANIO_LISTA = DEMANIO + "/it/gare-aste/beni-mobili-e-veicoli-confiscati/"
+
+
+def demanio_scarica(s, dal: dt.date, max_pagine=15):
+    oggi_iso = oggi().isoformat()
+    for p in range(1, max_pagine + 1):
+        r = get_retry(lambda: s.get(DEMANIO_LISTA, params={"p": p}, timeout=60))
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+        cards = soup.select("div.card-body")
+        cards = [c for c in cards if c.select_one("h2.card-title") and c.select_one("a[href*='/gara/']")]
+        log(f"  Demanio pagina {p}: {len(cards)} gare")
+        if not cards:
+            break
+        vecchie = 0
+        for c in cards:
+            campi = {}
+            for par in c.select("p.color_text_gare"):
+                testo = par.get_text(" ", strip=True)
+                if ":" in testo:
+                    k, v = testo.split(":", 1)
+                    campi[k.strip().lower()] = v.strip()
+            pub = data_it(campi.get("data pubblicazione bando", ""))
+            scad = data_it(campi.get("termine per partecipare", ""))
+            if pub and pub[:10] < dal.isoformat():
+                vecchie += 1
+                continue
+            if scad and scad[:10] < oggi_iso:
+                continue
+            titolo = c.select_one("h2.card-title").get_text(" ", strip=True)
+            desc = campi.get("descrizione", "")
+            if re.search(r"selezione di operatori|servizio triennale|demolizione e radiazione", titolo + desc, re.I) \
+                    and not re.search(r"vendita", titolo, re.I):
+                continue  # gare di servizi, non vendite
+            href = c.select_one("a[href*='/gara/']")["href"]
+            a = vuoto("Demanio", "demanio-" + re.sub(r"[^a-z0-9]+", "-", href.split("/gara/")[-1].lower())[:120],
+                      titolo, DEMANIO + href if href.startswith("/") else href)
+            a["descrizione"] = desc[:400]
+            a["pubblicata"] = pub[:10] if pub else None
+            a["scadenza"] = scad
+            a["tribunale"] = "Agenzia del Demanio"
+            a["categoria_portale"] = campi.get("tipo procedura", "")
+            testo = titolo + " " + desc
+            a["regione"] = regione_canonica(testo)
+            m = re.search(r"provincia di ([A-Z][\w' ]+?)(?:[,.;]| ed | e |$)", testo)
+            if m:
+                a["provincia"] = m.group(1).strip()
+            cat = classifica_testo(testo)
+            a["categoria"] = cat if cat != "altro" else ("auto_moto" if re.search(r"veicol|autovett", testo, re.I) else "altro")
+            yield a
+        if vecchie == len(cards):
+            break
+        time.sleep(0.5)
+
+
+# ---------------------------------------------------------------- Industrial Discount (vendite giudiziarie e da aziende)
+
+INDDISC = "https://www.industrialdiscount.it"
+INDDISC_STATO = {}
+
+
+def inddisc_scarica(s, ultimo_id: int, primo_avvio: bool, max_schede=250):
+    """Legge la mappa del sito, prende i lotti con ID più alto di quelli già visti, apre le loro schede."""
+    r = get_retry(lambda: s.get(INDDISC + "/sitemap/", timeout=90))
+    r.raise_for_status()
+    lotti = {}
+    for u in re.findall(r"<loc>([^<]*/lotti/[^<]+)</loc>", r.text):
+        m = re.search(r"-(\d+)/?$", u)
+        if m:
+            lotti[int(m.group(1))] = u
+    ids = sorted(lotti, reverse=True)
+    if ids:
+        INDDISC_STATO["max_id"] = ids[0]
+    nuovi = [i for i in ids if i > ultimo_id] if not primo_avvio else ids[:max_schede]
+    nuovi = nuovi[:max_schede]
+    log(f"  Industrial Discount: {len(lotti)} lotti in mappa, {len(nuovi)} da aprire")
+    oggi_iso = oggi().isoformat()
+    for i in nuovi:
+        try:
+            p = get_retry(lambda: s.get(lotti[i], timeout=45), tentativi=2)
+            if p.status_code != 200:
+                continue
+            a = inddisc_normalizza(i, lotti[i], p.text)
+        except Exception as e:  # noqa: BLE001
+            log("   scheda saltata", i, e)
+            continue
+        if a and a["scadenza"] and a["scadenza"][:10] >= oggi_iso:
+            yield a
+        time.sleep(0.4)
+
+
+def inddisc_normalizza(lid: int, url: str, h: str):
+    def meta(prop):
+        m = re.search(r'<meta[^>]+(?:property|name)="%s"[^>]+content="([^"]*)"' % re.escape(prop), h)
+        return html.unescape(m.group(1)).strip() if m else ""
+    titolo = meta("og:title")
+    if not titolo:
+        return None
+    a = vuoto("Industrial Discount", f"inddisc-{lid}", titolo, url)
+    a["descrizione"] = meta("description")[:400]
+    a["immagine"] = meta("og:image") or None
+    m = re.search(r'itemprop="price"\s+content="([\d.]+)"', h)
+    a["prezzo_base"] = float(m.group(1)) if m else None
+    m = re.search(r'id="expiry_date_\d+_%d"[^>]*>\s*(\d{2}/\d{2}/\d{4})\s*</span>\s*</div>\s*'
+                  r'<div class="expiry_time"><div class="hours">(\d{1,2}:\d{2})' % lid, h)
+    if m:
+        a["scadenza"] = data_it(f"{m.group(1)} {m.group(2)}")
+    else:
+        m = re.search(r'id="expiry_date_\d+_%d"[^>]*>\s*(\d{2}/\d{2}/\d{4})' % lid, h)
+        a["scadenza"] = data_it(m.group(1)) if m else None
+    seo = dict(re.findall(r'(macroCategoria|microCategoria|regione|provincia|comune|codiceAsta|codiceLotto):"([^"]*)"', h))
+    a["regione"] = regione_canonica(seo.get("regione", ""))
+    a["provincia"] = seo.get("provincia", "").title()
+    a["citta"] = seo.get("comune", "").title()
+    a["categoria_portale"] = " / ".join(x for x in [seo.get("macroCategoria", ""), seo.get("microCategoria", "")] if x).title()
+    a["lotto"] = f"Asta {seo.get('codiceAsta')} · lotto {seo.get('codiceLotto')}" if seo.get("codiceAsta") else None
+    a["tribunale"] = "Vendita da azienda" if re.search(r"VENDITA DA AZIENDA", h[:200000]) else "Industrial Discount"
+    macro = seo.get("macroCategoria", "").lower()
+    if macro == "nautico":
+        a["categoria"] = "nautica"
+    elif macro in ("trasporti",) and re.search(r"automobil|motocicl", seo.get("microCategoria", ""), re.I):
+        a["categoria"] = "auto_moto"
+    else:
+        cat = classifica_testo(titolo + " " + a["descrizione"])
+        a["categoria"] = cat if cat != "altro" else ("macchinari" if macro not in ("complesso aziendale", "quote societarie", "proprieta intellettuali") else "altro")
+    return a
+
+
+# ---------------------------------------------------------------- AsteBusiness
+
+ASTEBUS = "https://www.astebusiness.it"
+
+
+def astebusiness_scarica(s):
+    p, ultima = 1, 1
+    while p <= ultima:
+        r = get_retry(lambda: s.get(ASTEBUS + "/it/online-auction", timeout=60, params={
+            "page": p, "onlyAuctions": "true", "status": 1, "reservePrice": 0, "fromPrice": 0, "toPrice": 0},
+            headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}))
+        r.raise_for_status()
+        j = r.json()
+        j = j[0] if isinstance(j, list) else j
+        ultima = int(j.get("last_page") or 1)
+        dati = j.get("data") or []
+        log(f"  AsteBusiness pagina {p}/{ultima}: {len(dati)} aste")
+        yield from dati
+        p += 1
+        time.sleep(0.5)
+
+
+def astebusiness_normalizza(x: dict) -> dict:
+    a = vuoto("AsteBusiness", f"astebus-{x['id']}", html.unescape(x.get("auctionName") or ""), x.get("url") or ASTEBUS)
+    a["descrizione"] = html.unescape(x.get("auctionDescription") or "")[:400]
+    a["citta"] = x.get("auctionMunicipality") or ""
+    a["provincia"] = x.get("auctionProvince") or ""
+    a["regione"] = regione_canonica(x.get("auctionRegion") or "") or (x.get("auctionRegion") or "")
+    a["scadenza"] = (x.get("experimentDateStopFull") or "").replace(" ", "T")[:16] or None
+    a["categoria_portale"] = x.get("category") or ""
+    a["tribunale"] = x.get("salesTypeName") or ""
+    a["lotto"] = f"Asta {x.get('auctionNumber')}"
+    if x.get("experimentReducedPrice"):
+        try:
+            a["prezzo_base"] = float(x["experimentReducedPrice"])
+        except (TypeError, ValueError):
+            pass
+    a["immagine"] = ASTEBUS + x["imagePath"] if x.get("imagePath") else None
+    a["pvp_id"] = x.get("idInserzioneEspVendita")
+    cat = (x.get("category") or "").lower()
+    a["categoria"] = ("immobili" if "immobili" in cat else "nautica" if "nautica" in cat
+                      else "orologi_gioielli" if "oreficeria" in cat
+                      else classifica_testo(a["titolo"] + " " + a["descrizione"]))
+    return a
+
+
 # ---------------------------------------------------------------- filtri e avvisi
 
 class Filtri:
@@ -355,6 +573,10 @@ def messaggio(a, regola):
 
 # ---------------------------------------------------------------- main
 
+class _Spenta(Exception):
+    pass
+
+
 def carica_json(path, default):
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -380,8 +602,14 @@ def main():
     s = session()
     raccolti, esito_fonti = [], {}
 
+    attive = {k.lower(): bool(v) for k, v in (cfg.get("fonti") or {}).items()}
+    def attiva(nome):
+        return attive.get(nome.lower(), True)
+
     # --- PVP
     try:
+        if not attiva("pvp"):
+            raise _Spenta()
         regioni = pvp_mappa_regioni(s)
         n = 0
         cat_mobili = None if (filtri.kw or "sport_outdoor" in filtri.cat_attive) else list(PVP_CAT)
@@ -394,6 +622,8 @@ def main():
                     raccolti.append(pvp_normalizza(x, regioni))
                     n += 1
         esito_fonti["PVP"] = {"ok": True, "letti": n}
+    except _Spenta:
+        pass
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         esito_fonti["PVP"] = {"ok": False, "errore": str(e)[:300]}
@@ -401,6 +631,8 @@ def main():
     # --- Gobid (scarica sempre tutto: ~2.500 aste attive)
     gobid_visti = set()
     try:
+        if not attiva("gobid"):
+            raise _Spenta()
         n = 0
         for x in gobid_scarica(session()):
             a = gobid_normalizza(x)
@@ -408,9 +640,47 @@ def main():
             raccolti.append(a)
             n += 1
         esito_fonti["Gobid"] = {"ok": True, "letti": n}
+    except _Spenta:
+        pass
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         esito_fonti["Gobid"] = {"ok": False, "errore": str(e)[:300]}
+
+    # --- fonti aggiuntive. Una fonte al suo primo giro non manda avvisi (caricherebbe tutto lo storico).
+    stato = dati.get("stato") or {}
+    inizializzate = set(stato.get("fonti_inizializzate") or (["PVP", "Gobid"] if not primo_avvio else []))
+    elenco_completo = {}  # fonti che restituiscono tutte le aste attive: si possono togliere quelle sparite
+
+    def raccogli(nome, generatore, completo=False):
+        if not attiva(nome.replace(" ", "_")) or not attiva(nome):
+            return
+        visti, n = set(), 0
+        try:
+            for a in generatore:
+                raccolti.append(a)
+                visti.add(a["id"])
+                n += 1
+            esito_fonti[nome] = {"ok": True, "letti": n}
+            if completo:
+                elenco_completo[nome] = visti
+        except Exception as e:  # noqa: BLE001
+            traceback.print_exc()
+            esito_fonti[nome] = {"ok": False, "errore": str(e)[:300]}
+
+    raccogli("Demanio", demanio_scarica(session(), dal if "Demanio" in inizializzate
+                                        else oggi_d - dt.timedelta(days=120)))
+    ultimo_id = int(stato.get("inddisc_ultimo_id") or 0)
+    raccogli("Industrial Discount", inddisc_scarica(session(), ultimo_id, "Industrial Discount" not in inizializzate))
+    raccogli("AsteBusiness", (astebusiness_normalizza(x) for x in astebusiness_scarica(session())), completo=True)
+    if gobid_visti and esito_fonti.get("Gobid", {}).get("ok"):
+        elenco_completo["Gobid"] = gobid_visti
+
+    if INDDISC_STATO.get("max_id"):
+        stato["inddisc_ultimo_id"] = max(INDDISC_STATO["max_id"], ultimo_id)
+
+    # --- doppioni: un lotto già presente sul PVP non viene ripetuto
+    pvp_ids = {a["id"] for a in raccolti if a["fonte"] == "PVP"} | {k for k in esistenti if k.startswith("pvp-")}
+    raccolti = [a for a in raccolti if not (a.get("pvp_id") and f"pvp-{a['pvp_id']}" in pvp_ids)]
 
     # --- filtra, unisci, individua i nuovi
     nuovi = []
@@ -423,16 +693,19 @@ def main():
             a["visto_il"] = prec.get("visto_il", adesso)
         else:
             a["visto_il"] = adesso
-            nuovi.append(a)
+            if a["fonte"] in inizializzate:
+                nuovi.append(a)
         esistenti[a["id"]] = a
 
-    # --- rimuovi scadute e aste Gobid non più in elenco
+    # --- rimuovi scadute e aste non più in elenco
     soglia = (oggi_d - dt.timedelta(days=1)).isoformat()
     tenute = []
     for a in esistenti.values():
         if a["scadenza"] and a["scadenza"][:10] < soglia:
             continue
-        if a["fonte"] == "Gobid" and esito_fonti.get("Gobid", {}).get("ok") and a["id"] not in gobid_visti:
+        if a["fonte"] in elenco_completo and a["id"] not in elenco_completo[a["fonte"]]:
+            continue
+        if a.get("pvp_id") and f"pvp-{a['pvp_id']}" in pvp_ids:
             continue
         a["parole"] = filtri.parole_trovate(a)
         tenute.append(a)
@@ -462,6 +735,7 @@ def main():
         "fonti": esito_fonti,
         "categorie": CATEGORIE_LABEL,
         "nuovi_ultimo_giro": len(nuovi),
+        "stato": {**stato, "fonti_inizializzate": sorted(inizializzate | {k for k, v in esito_fonti.items() if v.get("ok")})},
         "aste": tenute,
     }
     DATA_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

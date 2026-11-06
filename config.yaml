@@ -4,6 +4,14 @@
 #  al prossimo giro il monitor userà i nuovi criteri.
 # ============================================================
 
+# Fonti da controllare (true = accesa, false = spenta)
+fonti:
+  pvp: true                  # Portale Vendite Pubbliche: tutte le giudiziarie e fallimentari
+  demanio: true              # Agenzia del Demanio: veicoli e beni confiscati
+  industrial_discount: true  # macchinari, veicoli, nautica (giudiziarie + vendite da aziende)
+  astebusiness: true         # aste giudiziarie e private
+  gobid: false               # blocca i server di GitHub (errore 403): lasciare spento
+
 # Giorni di annunci da recuperare al primo avvio (poi lavora solo sui nuovi)
 backfill_giorni: 30
 

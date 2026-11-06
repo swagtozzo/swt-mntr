@@ -2,9 +2,14 @@
 
 Controlla ogni ora i portali d'asta, filtra i lotti secondo i tuoi criteri, li mostra in una dashboard e ti avvisa su Telegram quando esce qualcosa che ti interessa.
 
-**Fonti attuali**
-- **PVP – Portale Vendite Pubbliche** (Ministero della Giustizia): per legge ci finiscono praticamente tutte le aste giudiziarie e fallimentari d'Italia, qualunque sia il gestore (Astalegale, Aste Giudiziarie, Fallco, IVG, Gobid…). Letto tramite la sua API pubblica.
-- **Gobid**: aggiunge le vendite non giudiziarie (leasing, banche, aziende) che sul PVP non ci sono.
+**Fonti attuali** (si accendono/spengono in `config.yaml` → `fonti`)
+- **PVP – Portale Vendite Pubbliche** (Ministero della Giustizia): per legge ci finiscono praticamente tutte le aste giudiziarie e fallimentari d'Italia, qualunque sia il gestore (Astegiudiziarie.it, Astetelematiche, Astalegale, Portaleaste, Fallco, IVG…). Letto tramite la sua API pubblica.
+- **Agenzia del Demanio**: veicoli e beni mobili confiscati (non passano dal PVP).
+- **Industrial Discount**: macchinari, veicoli, nautica, anche vendite da aziende attive.
+- **AsteBusiness**: aste giudiziarie e private; quelle già presenti sul PVP vengono scartate come doppioni.
+- **Gobid**: spento, perché blocca i server di GitHub.
+
+Non letti in automatico: **astagiudiziaria.com** (il suo robots.txt vieta i programmi automatici; i suoi lotti marcati "PVP" arrivano comunque dal PVP) e **astalegale.net / portaleaste.com** (bloccano gli accessi automatici; le loro giudiziarie arrivano dal PVP).
 
 ## Come funziona
 - GitHub Actions lancia `monitor.py` ogni ora dalle 6 alle 22 circa.

@@ -92,12 +92,11 @@ main{max-width:1240px;margin:0 auto;padding:14px 16px 60px}
     </select>
   </div>
   <div class="chips" id="cats"></div>
+  <div class="chips" id="srcs"></div>
   <div class="chips" id="toggles">
     <span class="chip toggle" data-t="nuovi">Nuove 24h</span>
     <span class="chip toggle" data-t="kw">Solo parole chiave</span>
     <span class="chip toggle" data-t="fav">★ Preferiti</span>
-    <span class="chip toggle" data-t="PVP">PVP</span>
-    <span class="chip toggle" data-t="Gobid">Gobid</span>
   </div>
 </header>
 <main>
@@ -158,6 +157,12 @@ async function load(){
   $('#cats').innerHTML = Object.entries(DATA.categorie).filter(([k]) => counts[k])
     .map(([k,l]) => `<span class="chip" data-c="${k}">${esc(l)}<b>${counts[k]}</b></span>`).join('');
 
+  const fc = {};
+  ASTE.forEach(a => fc[a.fonte] = (fc[a.fonte] || 0) + 1);
+  $('#srcs').innerHTML = Object.entries(fc).sort((a,b) => b[1]-a[1])
+    .map(([k,n]) => `<span class="chip toggle" data-s="${esc(k)}">${esc(k)}<b>${n}</b></span>`).join('');
+  st.srcs = st.srcs || [];
+  document.querySelectorAll('#srcs .chip').forEach(c => c.classList.toggle('on', st.srcs.includes(c.dataset.s)));
   for (const k of ['q','regione','pmax','entro','ordine']) $('#'+k).value = st[k] || ($('#'+k).tagName === 'SELECT' && k === 'ordine' ? 'scadenza' : '');
   document.querySelectorAll('#cats .chip').forEach(c => c.classList.toggle('on', st.cats.includes(c.dataset.c)));
   document.querySelectorAll('#toggles .chip').forEach(c => c.classList.toggle('on', st.toggles.includes(c.dataset.t)));
@@ -170,7 +175,7 @@ function filtered(){
   const entro = parseInt(st.entro);
   const now = Date.now();
   const T = new Set(st.toggles);
-  const srcs = ['PVP','Gobid'].filter(s => T.has(s));
+  const srcs = st.srcs || [];
   let out = ASTE.filter(a => {
     if (st.cats.length && !st.cats.includes(a.categoria)) return false;
     if (st.regione && a.regione !== st.regione) return false;
@@ -238,6 +243,11 @@ for (const k of ['q','regione','pmax','entro','ordine']) {
 $('#cats').addEventListener('click', e => {
   const c = e.target.closest('.chip'); if (!c) return;
   const k = c.dataset.c; st.cats = st.cats.includes(k) ? st.cats.filter(x => x !== k) : [...st.cats, k];
+  c.classList.toggle('on'); save();
+});
+$('#srcs').addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  const k = c.dataset.s; st.srcs = (st.srcs || []).includes(k) ? st.srcs.filter(x => x !== k) : [...(st.srcs || []), k];
   c.classList.toggle('on'); save();
 });
 $('#toggles').addEventListener('click', e => {
