@@ -584,6 +584,24 @@ def astebusiness_normalizza(x: dict) -> dict:
 
 # ---------------------------------------------------------------- filtri e avvisi
 
+_DATA = r"\D{0,25}?(?:\d{1,2}\s*[/.-]\s*\d{1,2}\s*[/.-]\s*)?((?:19[5-9]|20[0-3])\d)\b"
+RX_ANNO_FORTE = re.compile(r"(?:immatricolat\w*|immatr\.?|anno(?: di)?(?: costruzione| fabbricazione| immatricolazione| modello)?|prima volta nel|costruit\w*)" + _DATA, re.I)
+RX_ANNO_DEBOLE = re.compile(r"\b(?:del|dal)\s+((?:19[5-9]|20[0-3])\d)\b", re.I)
+RX_PROCEDURA = re.compile(r"(?:r\.?\s?g\.?|n\.|nr\.?|numero|procedura|esecuzione|fallimento|liquidazione|lotto)\s*[\w./-]{0,12}\s+(?:del|dal)\s+(?:19|20)\d\d", re.I)
+
+
+def anno_bene(testo: str) -> int | None:
+    """Anno di immatricolazione/costruzione (es. 'immatricolata per la prima volta nel 2019').
+    Le parole sicure (immatricolata, anno…) vincono sul semplice 'del 2019', che può essere l'anno della procedura."""
+    oggi_a = dt.date.today().year
+    forti = [int(m.group(1)) for m in RX_ANNO_FORTE.finditer(testo or "") if 1950 <= int(m.group(1)) <= oggi_a]
+    if forti:
+        return max(forti)
+    pulito = RX_PROCEDURA.sub(" ", testo or "")
+    deboli = [int(m.group(1)) for m in RX_ANNO_DEBOLE.finditer(pulito) if 1950 <= int(m.group(1)) <= oggi_a]
+    return min(deboli) if deboli else None
+
+
 class Lista:
     """Lista desideri: oggetti precisi da cercare, ognuno con parole, esclusioni, prezzo e zona."""
     def __init__(self, voci):
@@ -600,6 +618,7 @@ class Lista:
                 "immobili": bool(v.get("immobili")),
                 "prezzo_max": v.get("prezzo_max"),
                 "regioni": {r.lower() for r in v.get("regioni") or []},
+                "anno_min": int(v["anno_min"]) if v.get("anno_min") else None,
             })
 
     def trova(self, a) -> list[str]:
@@ -618,6 +637,10 @@ class Lista:
                 continue
             if v["prezzo_max"] and a.get("prezzo_base") and a["prezzo_base"] > v["prezzo_max"]:
                 continue
+            if v["anno_min"]:
+                anno = anno_bene(testo)
+                if anno and anno < v["anno_min"]:
+                    continue   # anno sconosciuto: meglio avvisare che perdere l'asta
             if v["regioni"] and (a.get("regione") or "").lower() not in v["regioni"]:
                 continue   # se la voce ha delle regioni, un lotto senza regione nota non passa
             out.append(v["nome"])
@@ -1054,7 +1077,13 @@ def main():
         log("Avvisi in pausa (comando /pausa)")
     elif not primo_avvio:
         in_dashboard = {a["id"] for a in tenute}
+        gia_lista = set(stato.get("lista_avvisati") or [])
+        id_nuovi = {a["id"] for a in nuovi}
+        # lotti della lista mai segnalati (anche se pubblicati prima dell'avvio o prima di aggiungere la voce)
+        arretrati = [a for a in tenute if a.get("lista") and a["id"] not in gia_lista and a["id"] not in id_nuovi]
         candidati = sorted((a for a in nuovi if a["id"] in in_dashboard), key=lambda a: 0 if a.get("lista") else 1)
+        candidati = [a for a in candidati if a.get("lista")] + arretrati + [a for a in candidati if not a.get("lista")]
+        stato["lista_avvisati"] = sorted((gia_lista | {a["id"] for a in tenute if a.get("lista")}) & in_dashboard)
         if modalita == "riepilogo":
             candidati = [a for a in candidati if a.get("lista")]   # il resto arriva nel riepilogo del mattino
         da_avvisare = [(a, regola_che_scatta(a, regole)) for a in candidati]
