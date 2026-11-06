@@ -72,7 +72,16 @@ a{color:inherit}
 .railhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px}
 .railhead h2{margin:0;font-size:15px;font-weight:600}
 .railhead span{font-size:13px;color:var(--ink3)}
-.rail{display:grid;grid-template-columns:repeat(21,minmax(38px,1fr));gap:4px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.railbox{position:relative}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:46px;gap:4px;overflow-x:auto;padding:16px 0 8px;scrollbar-width:thin;scroll-behavior:smooth;scroll-snap-type:x proximity}
+.rail .day{scroll-snap-align:start}
+.day .mese{position:absolute;top:-15px;left:2px;font-size:11.5px;font-weight:700;color:var(--ink2);white-space:nowrap}
+.day.lun{margin-left:6px}
+.railnav{position:absolute;top:16px;bottom:8px;width:34px;border:0;display:grid;place-items:center;z-index:2;color:var(--ink);cursor:pointer}
+.railnav.l{left:-2px;background:linear-gradient(90deg,var(--paper) 55%,transparent)}
+.railnav.r{right:-2px;background:linear-gradient(270deg,var(--paper) 55%,transparent)}
+.railnav[hidden]{display:none}
+.railnav svg{width:18px;height:18px}
 .day{border:0;background:var(--surface);border-radius:8px;padding:6px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:96px;justify-content:flex-end;box-shadow:var(--shadow);position:relative}
 .day .bar{width:60%;border-radius:3px 3px 1px 1px;background:var(--calm);min-height:2px;transition:height .25s}
 .day.u2 .bar{background:var(--red)} .day.u7 .bar{background:var(--amber)}
@@ -241,6 +250,40 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;z-index:30;pointer-events:none}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
+/* ---------- blocco con password ---------- */
+.lock{position:fixed;inset:0;background:var(--paper);z-index:40;display:grid;place-items:center;padding:20px}
+.lock[hidden]{display:none}
+.lock form{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(420px,100%);display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.lock h2{margin:0;font-size:22px;font-variation-settings:"wdth" 118}
+.lock p{margin:0;color:var(--ink2);font-size:14px}
+.lock input[type=password],.dlg input[type=password],.dlg input[type=text]{padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--paper);font-size:16px;width:100%}
+.lock .err{color:var(--red);font-size:13.5px;min-height:18px}
+.lock label.chk,.dlg label.chk{display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--ink2)}
+.sync{font-size:12.5px;color:var(--ink3);display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:4px 6px;border-radius:8px}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--ink3)}
+.sync.ok i{background:var(--green)} .sync.err i{background:var(--red)} .sync.run i{background:var(--amber)}
+.dlg{position:fixed;inset:0;z-index:35;display:grid;place-items:center;background:rgba(10,15,20,.38);padding:16px}
+.dlg[hidden]{display:none}
+.dlg form{background:var(--surface);border-radius:16px;padding:22px;width:min(480px,100%);display:flex;flex-direction:column;gap:10px}
+.dlg h2{margin:0;font-size:19px}
+.dlg p,.dlg li{margin:0;font-size:13.5px;color:var(--ink2)}
+.dlg ol{margin:0;padding-left:18px}
+.dlg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+/* ---------- costo finale, archivio, bando ---------- */
+.calc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.calc label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink3)}
+.calc input,.calc select{padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);font-size:15px;width:100%}
+.calc .tot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:10px}
+.calc .tot b{font-size:26px;font-variation-settings:"wdth" 118}
+.calc .det{grid-column:1/-1;font-size:12.5px;color:var(--ink3)}
+.arch{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.arch li{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;border-bottom:1px solid var(--line);padding-bottom:7px}
+.arch li span{color:var(--ink3);font-size:12.5px;white-space:nowrap;text-align:right}
+.arch .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bandobox dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 10px;font-size:14px}
+.bandobox dt{color:var(--ink3)} .bandobox dd{margin:0;font-weight:600}
+.km{font-weight:600;color:var(--ink)}
+
 /* ---------- mobile ---------- */
 @media (max-width:980px){
   .layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 80px}
@@ -276,7 +319,7 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
   .ttl{padding-right:26px;font-size:15px}
   .health .src-dot{display:none}
   .health .src-dot.ko{display:inline-flex}
-  .rail{grid-template-columns:repeat(21,44px)}
+  .railnav{display:none}
   .facts{grid-template-columns:1fr 1fr}
   .pcount .big{font-size:42px}
 }
@@ -285,18 +328,49 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
 </head>
 <body>
 
+<div class="lock" id="lock" hidden>
+  <form id="lockform" autocomplete="on">
+    <h2>Aste</h2>
+    <p>I dati sono cifrati. Inserisci la tua password per vederli.</p>
+    <input type="text" name="username" value="aste" autocomplete="username" hidden>
+    <input type="password" id="lockpw" autocomplete="current-password" placeholder="Password" required>
+    <label class="chk"><input type="checkbox" id="lockrem" checked> Ricorda su questo dispositivo</label>
+    <div class="err" id="lockerr"></div>
+    <button class="btn primary" type="submit">Apri</button>
+  </form>
+</div>
+<div class="dlg" id="syncdlg" hidden>
+  <form id="syncform">
+    <h2>Sincronizza tra i tuoi dispositivi</h2>
+    <p>Stelle, stati e note vengono salvati (cifrati) nel tuo repository GitHub, così li ritrovi su telefono e PC e il bot ti manda i promemoria prima della chiusura.</p>
+    <ol>
+      <li>Apri <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com › Fine-grained token</a></li>
+      <li>Repository access: <b>Only select repositories</b> › il repository del monitor</li>
+      <li>Permissions › Contents: <b>Read and write</b> · poi <b>Generate token</b></li>
+      <li>Incolla qui sotto il codice (inizia con github_pat_)</li>
+    </ol>
+    <input type="password" id="synctok" placeholder="github_pat_…" autocomplete="off">
+    <p id="syncmsg"></p>
+    <div class="row"><button type="button" class="btn" id="syncoff">Disattiva</button><button type="button" class="btn" id="syncclose">Chiudi</button><button class="btn primary" type="submit">Salva e sincronizza</button></div>
+  </form>
+</div>
 <header class="top">
   <div class="brand">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6-3 3-6-6z"/><path d="M11 7l-7.5 7.5a1.5 1.5 0 0 0 0 2.1l1 1a1.5 1.5 0 0 0 2.1 0L14 10"/><path d="M13 21h8"/></svg>
     <h1>Aste</h1>
   </div>
   <div class="health" id="health">Carico i dati…</div>
+  <button class="sync" id="syncbtn" title="Sincronizzazione tra dispositivi"><i></i><span>Solo questo dispositivo</span></button>
   <button class="iconbtn" id="theme" title="Cambia tema" aria-label="Cambia tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
 </header>
 
 <section class="railwrap" aria-labelledby="railtitle">
-  <div class="railhead"><h2 id="railtitle">Chiusure nei prossimi 21 giorni</h2><span id="railhint">Tocca un giorno per vedere solo quelle aste</span></div>
-  <div class="rail" id="rail" role="group" aria-label="Aste per giorno di chiusura"></div>
+  <div class="railhead"><h2 id="railtitle">Chiusure nei prossimi 60 giorni</h2><span id="railhint">Tocca un giorno per vedere solo quelle aste</span></div>
+  <div class="railbox">
+    <button class="railnav l" id="railL" aria-label="Giorni precedenti" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="rail" id="rail" role="group" aria-label="Aste per giorno di chiusura"></div>
+    <button class="railnav r" id="railR" aria-label="Giorni successivi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
 </section>
 
 <div class="layout">
@@ -319,6 +393,9 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
     </div>
     <div class="fgroup"><h3>Dove</h3>
       <label class="field"><span class="sr">Regione</span><select id="regione"><option value="">Tutta Italia</option></select></label>
+      <label class="field" id="kmwrap" hidden style="margin-top:8px">Distanza da casa<select id="km">
+        <option value="">Qualsiasi distanza</option><option value="25">Entro 25 km</option><option value="50">Entro 50 km</option>
+        <option value="100">Entro 100 km</option><option value="200">Entro 200 km</option><option value="400">Entro 400 km</option></select></label>
     </div>
     <div class="fgroup"><h3>Portale</h3><div id="srcs"></div></div>
     <div class="fgroup"><h3>Le tue aste</h3><div id="stati"></div></div>
@@ -338,6 +415,7 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
       <select class="sortsel" id="ordine" aria-label="Ordina">
         <option value="scadenza">Chiudono prima</option>
         <option value="occasioni">Occasioni prima</option>
+        <option value="vicine">Più vicine a casa</option>
         <option value="nuove">Arrivate da poco</option>
         <option value="prezzo">Prezzo più basso</option>
         <option value="prezzo_desc">Prezzo più alto</option>
@@ -363,9 +441,11 @@ const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 };
-const DEF = {q:'', pmin:'', pmax:'', noprice:true, regione:'', cats:[], srcs:[], quick:[], stati:[], lista:[], day:'', ordine:'scadenza', vista:'list'};
+const DEF = {q:'', pmin:'', pmax:'', noprice:true, regione:'', km:'', cats:[], srcs:[], quick:[], stati:[], lista:[], day:'', ordine:'scadenza', vista:'list'};
 const st = Object.assign({}, DEF, store.get('aste.filtri', {}));
 let favs = store.get('preferiti', {}), notes = store.get('note', {}), stati = store.get('stati', {});
+let TS = store.get('ut_ts', {});          // quando è stata cambiata ogni stella/nota/stato (per unire i dispositivi)
+let PW = '';                               // password dei dati cifrati (se presente)
 const STATI = [['valutare','Da valutare'],['sopralluogo','Sopralluogo'],['offerta','Offerta fatta'],['vinta','Vinta'],['scartata','Scartata']];
 const STATO_LBL = Object.fromEntries(STATI);
 const BOLT = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
@@ -391,6 +471,8 @@ const euro = v => v == null ? null : '€ ' + Math.round(v).toLocaleString('it-I
 const parseD = s => s ? new Date(s.length <= 10 ? s + 'T12:00' : s) : null;
 const dayKey = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 const GG = ['dom','lun','mar','mer','gio','ven','sab'];
+const GIORNI = 60;
+const MESI_L = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 const MM = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 
 function countdown(s){
@@ -410,11 +492,121 @@ function whenText(s){
 const place = a => { const p = [a.citta, a.provincia && a.provincia !== a.citta ? a.provincia : '', a.regione].filter(Boolean); return [...new Set(p)].join(', '); };
 const isNew = a => a.visto_il && (Date.now() - parseD(a.visto_il)) < 864e5;
 
+/* ---------- cifratura (stesso formato di cifra.py) ---------- */
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const b64e = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+const KCACHE = {};
+async function chiave(pw, salt, iter){
+  const k = pw + '|' + b64e(salt) + '|' + iter;
+  if (!KCACHE[k]) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    KCACHE[k] = crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+  }
+  return KCACHE[k];
+}
+async function decifra(obj, pw){
+  const key = await chiave(pw, b64d(obj.salt), obj.iter);
+  let raw = new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(obj.iv)}, key, b64d(obj.ct)));
+  if (obj.gz) raw = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+async function cifraJS(dati, pw){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12)), iter = 250000;
+  const gz = new Uint8Array(await new Response(new Blob([JSON.stringify(dati)]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, await chiave(pw, salt, iter), gz));
+  return JSON.stringify({v:1, kdf:'pbkdf2-sha256', iter, salt:b64e(salt), iv:b64e(iv), gz:true, ct:b64e(ct)});
+}
+async function scaricaDati(nome){
+  const r = await fetch(`data/${nome}.enc?t=` + Date.now());
+  if (r.ok) { const obj = await r.json(); if (!PW) throw new Error('password'); return decifra(obj, PW); }
+  const j = await fetch(`data/${nome}.json?t=` + Date.now());
+  if (!j.ok) throw new Error('assenti');
+  return j.json();
+}
+function chiediPassword(errore){
+  return new Promise(res => {
+    $('#lock').hidden = false; $('#lockerr').textContent = errore || ''; $('#lockpw').value = ''; setTimeout(() => $('#lockpw').focus(), 50);
+    $('#lockform').onsubmit = ev => { ev.preventDefault(); res({pw:$('#lockpw').value, ricorda:$('#lockrem').checked}); };
+  });
+}
+
+/* ---------- sincronizzazione stelle/stati/note via GitHub ---------- */
+let REPO = (() => { const o = location.hostname.split('.')[0], r = location.pathname.split('/').filter(Boolean)[0]; return o && r ? `${o}/${r}` : ''; })();
+let TOKEN = store.get('gh_token', ''), SHA = null, syncTmr = null, syncing = false;
+function utenteLocale(){
+  const u = {fav:{}, stati:{}, note:{}};
+  const ids = new Set(Object.keys(TS).map(k => k.split(':').slice(1).join(':')));
+  for (const id of ids) {
+    if (TS['fav:'+id]) u.fav[id] = {v: !!favs[id], ts: TS['fav:'+id]};
+    if (TS['stato:'+id]) u.stati[id] = {s: stati[id] || null, ts: TS['stato:'+id]};
+    if (TS['nota:'+id]) u.note[id] = {t: notes[id] || '', ts: TS['nota:'+id]};
+  }
+  return u;
+}
+function unisci(remoto){
+  let cambiato = false;
+  const applica = (tipo, map, val, set) => { for (const [id, x] of Object.entries(remoto[map] || {})) {
+    const k = tipo + ':' + id; if ((x.ts || 0) > (TS[k] || 0)) { set(id, val(x)); TS[k] = x.ts; cambiato = true; } } };
+  applica('fav', 'fav', x => !!x.v, (id, v) => { if (v) favs[id] = Date.now(); else delete favs[id]; });
+  applica('stato', 'stati', x => x.s, (id, v) => { if (v) stati[id] = v; else delete stati[id]; });
+  applica('nota', 'note', x => x.t, (id, v) => { if (v) notes[id] = v; else delete notes[id]; });
+  if (cambiato) { store.set('preferiti', favs); store.set('stati', stati); store.set('note', notes); store.set('ut_ts', TS); }
+  return cambiato;
+}
+function syncStato(cls, txt){ const b = $('#syncbtn'); b.className = 'sync ' + cls; b.querySelector('span').textContent = txt; }
+async function ghGet(){
+  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/utente.enc?t=${Date.now()}`, {headers:{Authorization:'Bearer ' + TOKEN, Accept:'application/vnd.github+json'}, cache:'no-store'});
+  if (r.status === 404) { SHA = null; return null; }
+  if (!r.ok) throw new Error('GitHub ' + r.status);
+  const j = await r.json(); SHA = j.sha;
+  const testo = new TextDecoder().decode(b64d(j.content.replace(/\n/g, '')));
+  const obj = JSON.parse(testo);
+  return obj.ct ? decifra(obj, PW) : obj;
+}
+async function sincronizza(){
+  if (!TOKEN || !REPO || syncing) return;
+  if (!PW) { syncStato('err', 'Serve la password dei dati'); return; }
+  syncing = true; syncStato('run', 'Sincronizzo…');
+  try {
+    for (let tent = 0; tent < 3; tent++) {
+      const remoto = await ghGet();
+      if (remoto) unisci(remoto);
+      const loc = utenteLocale();
+      const corpo = {message:'Stelle, stati e note dalla dashboard', content:b64e(new TextEncoder().encode(await cifraJS(loc, PW)))};
+      if (SHA) corpo.sha = SHA;
+      const r = await fetch(`https://api.github.com/repos/${REPO}/contents/utente.enc`, {method:'PUT', headers:{Authorization:'Bearer ' + TOKEN, Accept:'application/vnd.github+json'}, body:JSON.stringify(corpo)});
+      if (r.ok) { SHA = (await r.json()).content.sha; syncStato('ok', 'Sincronizzato'); render(); return; }
+      if (r.status !== 409 && r.status !== 422) throw new Error('GitHub ' + r.status);
+    }
+    throw new Error('conflitto');
+  } catch(e) { syncStato('err', e.message === 'GitHub 401' || e.message === 'GitHub 403' ? 'Token non valido' : 'Sincronizzazione non riuscita'); }
+  finally { syncing = false; }
+}
+async function scaricaUtente(){
+  if (!TOKEN || !REPO || !PW) return;
+  try { syncStato('run', 'Sincronizzo…'); const r = await ghGet(); if (r && unisci(r)) render(); syncStato('ok', 'Sincronizzato'); }
+  catch(e) { syncStato('err', 'Sincronizzazione non riuscita'); }
+}
+function segna(tipo, id){ TS[tipo + ':' + id] = Date.now(); store.set('ut_ts', TS); clearTimeout(syncTmr); if (TOKEN) syncTmr = setTimeout(sincronizza, 2500); }
+
+let ARCH = null;
+async function archivio(){ if (ARCH) return ARCH; try { ARCH = await scaricaDati('archivio'); } catch(e) { ARCH = []; } return ARCH; }
+
 async function load(){
   try {
-    const r = await fetch('data/aste.json?t=' + Date.now());
-    if (!r.ok) throw new Error(r.status);
-    DATA = await r.json();
+    const enc = await fetch('data/aste.enc?t=' + Date.now(), {method:'HEAD'});
+    if (enc.ok) {
+      PW = store.get('aste.pw', '');
+      let errore = '';
+      for (;;) {
+        if (!PW) { const r = await chiediPassword(errore); PW = r.pw; if (r.ricorda) store.set('aste.pw', PW); else try { localStorage.removeItem('aste.pw'); } catch(_) {} }
+        try { DATA = await scaricaDati('aste'); break; }
+        catch(e) { PW = ''; try { localStorage.removeItem('aste.pw'); } catch(_) {} errore = 'Password sbagliata, riprova.'; }
+      }
+      $('#lock').hidden = true;
+    } else {
+      DATA = await scaricaDati('aste');
+    }
   } catch(e) {
     $('#health').textContent = '';
     $('#results').innerHTML = '<div class="empty"><b>Nessun dato ancora</b>Il primo controllo dei portali non è finito. Ricarica la pagina tra qualche minuto.</div>';
@@ -424,6 +616,7 @@ async function load(){
   ASTE = (DATA.aste || []).filter(a => { const d = parseD(a.scadenza); return !d || d.getTime() > ieri || favs[a.id]; });
   ASTE.forEach(a => { if (!a.prezzo_base) a.prezzo_base = null; if (!a.offerta_minima) a.offerta_minima = null; if (!a.rialzo_minimo) a.rialzo_minimo = null; a._t = (a.titolo + ' ' + (a.descrizione||'') + ' ' + place(a) + ' ' + (a.tribunale||'') + ' ' + (a.categoria_portale||'')).toLowerCase(); a._d = a.scadenza ? dayKey(parseD(a.scadenza)) : ''; });
   renderHealth(); buildSide(); syncControls(); render();
+  if (TOKEN) scaricaUtente(); else syncStato('', 'Solo questo dispositivo');
 }
 
 function renderHealth(){
@@ -445,6 +638,7 @@ function buildSide(){
   $('#srcs').innerHTML = Object.entries(sc).sort((a,b) => b[1]-a[1]).map(([k,n]) =>
     `<button class="opt" data-src="${esc(k)}" aria-pressed="false">${esc(k)}<span class="cnt">${n.toLocaleString('it-IT')}</span></button>`).join('');
   renderStatiSide();
+  $('#kmwrap').hidden = !ASTE.some(a => a.km != null);
   const lc = {}; ASTE.forEach(a => (a.lista || []).forEach(n => lc[n] = (lc[n]||0) + 1));
   if (!Array.isArray(st.lista)) st.lista = [];
   $('#listagrp').hidden = !Object.keys(lc).length;
@@ -460,7 +654,7 @@ function renderStatiSide(){
     + '<p style="font-size:12.5px;color:var(--ink3);margin:6px 6px 0">Le scartate restano nascoste finché non le selezioni qui.</p>';
 }
 function syncControls(){
-  for (const k of ['q','pmin','pmax','regione','ordine']) $('#'+k).value = st[k] || (k === 'ordine' ? 'scadenza' : '');
+  for (const k of ['q','pmin','pmax','regione','ordine','km']) $('#'+k).value = st[k] || (k === 'ordine' ? 'scadenza' : '');
   $('#noprice').checked = !!st.noprice;
   document.querySelectorAll('[data-cat]').forEach(b => b.setAttribute('aria-pressed', st.cats.includes(b.dataset.cat)));
   document.querySelectorAll('[data-src]').forEach(b => b.setAttribute('aria-pressed', st.srcs.includes(b.dataset.src)));
@@ -476,6 +670,7 @@ function filtered(skipDay){
     if (st.cats.length && !st.cats.includes(a.categoria)) return false;
     if (st.srcs.length && !st.srcs.includes(a.fonte)) return false;
     if (st.regione && a.regione !== st.regione) return false;
+    if (st.km && (a.km == null || a.km > +st.km)) return false;
     if (a.prezzo_base == null) { if ((!isNaN(pmin) || !isNaN(pmax)) && !st.noprice) return false; }
     else { if (!isNaN(pmin) && a.prezzo_base < pmin) return false; if (!isNaN(pmax) && a.prezzo_base > pmax) return false; }
     if (Q.has('nuove') && !isNew(a)) return false;
@@ -498,6 +693,7 @@ function sortList(list){
   const s = st.ordine;
   return list.sort((a,b) =>
     s === 'nuove' ? (b.visto_il||'').localeCompare(a.visto_il||'') || (b.pubblicata||'').localeCompare(a.pubblicata||'') :
+    s === 'vicine' ? (a.km ?? 1e9) - (b.km ?? 1e9) :
     s === 'occasioni' ? ((b.occasione ? b.occasione.punti : 0) - (a.occasione ? a.occasione.punti : 0)) || (a.scadenza || '9999').localeCompare(b.scadenza || '9999') :
     s === 'prezzo' ? (a.prezzo_base ?? 1e12) - (b.prezzo_base ?? 1e12) :
     s === 'prezzo_desc' ? (b.prezzo_base ?? -1) - (a.prezzo_base ?? -1) :
@@ -508,15 +704,17 @@ function renderRail(base){
   const counts = {};
   base.forEach(a => { if (a._d) counts[a._d] = (counts[a._d]||0) + 1; });
   const days = [], t0 = new Date(); t0.setHours(12,0,0,0);
-  for (let i = 0; i < 21; i++) { const d = new Date(t0); d.setDate(t0.getDate() + i); days.push(d); }
+  for (let i = 0; i < GIORNI; i++) { const d = new Date(t0); d.setDate(t0.getDate() + i); days.push(d); }
   const max = Math.max(1, ...days.map(d => counts[dayKey(d)] || 0));
   $('#rail').innerHTML = days.map((d,i) => {
     const k = dayKey(d), n = counts[k] || 0, u = i <= 1 ? 'u2' : i <= 7 ? 'u7' : '';
     const lbl = i === 0 ? 'oggi' : i === 1 ? 'domani' : GG[d.getDay()];
-    return `<button class="day ${u}${i===0?' today':''}${st.day===k?' on':''}" data-day="${k}" ${n?'':'disabled'} aria-pressed="${st.day===k}" aria-label="${n} aste chiudono ${lbl} ${d.getDate()} ${MM[d.getMonth()]}">
+    const mese = (i === 0 || d.getDate() === 1) ? `<span class="mese">${MESI_L[d.getMonth()]}</span>` : '';
+    return `<button class="day ${u}${i===0?' today':''}${st.day===k?' on':''}${d.getDay()===1 && i>0 ? ' lun' : ''}" data-day="${k}" ${n?'':'disabled'} aria-pressed="${st.day===k}" aria-label="${n} aste chiudono ${lbl} ${d.getDate()} ${MM[d.getMonth()]}">
       <span class="n">${n || ''}</span><span class="bar" style="height:${n ? 6 + Math.round(42 * n / max) : 2}px"></span>
-      <span class="d">${lbl}<b>${d.getDate()}</b></span></button>`;
+      <span class="d">${lbl}<b>${d.getDate()}</b></span>${mese}</button>`;
   }).join('');
+  requestAnimationFrame(railNav);
   $('#railhint').textContent = st.day ? `Mostro solo il ${whenText(st.day)}. Tocca di nuovo per togliere.` : 'Tocca un giorno per vedere solo quelle aste';
 }
 
@@ -536,7 +734,7 @@ function ticket(a){
   return `<article class="ticket${fav?' fav':''}" data-id="${esc(a.id)}" tabindex="0">
     <div class="stub ${c.cls}"><span class="big">${c.big}</span><span class="unit">${c.unit}</span><span class="when">${whenText(a.scadenza)}</span></div>
     <div class="body">${metaHtml(a)}<h3 class="ttl">${esc(a.titolo)}</h3>
-      ${pl ? `<div class="place">${PIN}<span>${esc(pl)}</span></div>` : ''}
+      ${pl || a.km != null ? `<div class="place">${PIN}<span>${a.km != null ? `<b class="km">${a.km} km</b> · ` : ''}${esc(pl)}</span></div>` : ''}
       ${notes[a.id] ? `<div class="notep">${esc(notes[a.id])}</div>` : ''}</div>
     <div class="price">${priceHtml(a)}</div>
     <button class="star" data-fav="${esc(a.id)}" aria-pressed="${fav}" aria-label="Segui quest'asta">${STAR}</button>
@@ -547,7 +745,7 @@ function card(a){
   return `<article class="card${fav?' fav':''}" data-id="${esc(a.id)}" tabindex="0">
     <div class="pic${a.immagine ? ' has' : ''}" style="color:${CAT_COL[a.categoria]}">${svg(a.categoria)}${a.immagine ? `<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(a.immagine)}" alt="" onerror="this.parentNode.classList.remove('has');this.remove()">` : ''}
       <span class="cd ${c.cls}">${c.big} ${c.unit}</span></div>
-    <div class="body">${metaHtml(a)}<h3 class="ttl">${esc(a.titolo)}</h3>${pl ? `<div class="place">${PIN}<span>${esc(pl)}</span></div>` : ''}</div>
+    <div class="body">${metaHtml(a)}<h3 class="ttl">${esc(a.titolo)}</h3>${pl || a.km != null ? `<div class="place">${PIN}<span>${a.km != null ? `<b class="km">${a.km} km</b> · ` : ''}${esc(pl)}</span></div>` : ''}</div>
     <div class="foot"><div class="price" style="padding:0;align-items:flex-start;text-align:left;min-width:0">${priceHtml(a)}</div><span class="place" style="font-size:12px">${whenText(a.scadenza)}</span></div>
     <button class="star" data-fav="${esc(a.id)}" aria-pressed="${fav}" aria-label="Segui quest'asta">${STAR}</button>
   </article>`;
@@ -559,6 +757,7 @@ function renderActive(){
   st.cats.forEach(c => chips.push(['cat:'+c, DATA.categorie[c] || c]));
   st.srcs.forEach(s => chips.push(['src:'+s, s]));
   if (st.regione) chips.push(['regione', st.regione]);
+  if (st.km) chips.push(['km', 'entro ' + st.km + ' km']);
   if (st.pmin) chips.push(['pmin', 'da € ' + Number(st.pmin).toLocaleString('it-IT')]);
   if (st.pmax) chips.push(['pmax', 'fino a € ' + Number(st.pmax).toLocaleString('it-IT')]);
   if (st.day) chips.push(['day', 'chiude ' + whenText(st.day)]);
@@ -613,7 +812,7 @@ function openPanel(id){
     ['Rilancio minimo', euro(a.rialzo_minimo)],
     ['Ribasso', a.ribasso_pct ? `−${a.ribasso_pct}%` : null],
     ['Chiusura', whenText(a.scadenza)],
-    ['Dove', place(a) || null],
+    ['Dove', (place(a) || '') + (a.km != null ? ` · ${a.km} km da casa` : '') || null],
     ['Procedura', [a.tribunale, a.procedura ? 'n. ' + a.procedura : ''].filter(Boolean).join(' ') || null],
     ['Lotto', a.lotto],
     ['Categoria sul portale', a.categoria_portale],
@@ -645,7 +844,19 @@ function openPanel(id){
         <button class="btn" id="pics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Aggiungi al calendario</button>
         ${place(a) ? `<a class="btn" href="https://www.google.com/maps/search/${encodeURIComponent(place(a))}" target="_blank" rel="noopener">${PIN}Mappa</a>` : ''}
       </div></div>
+      ${bandoHtml(a)}
       ${portaliHtml(a)}
+      <div class="psec"><h3 class="aih">Quanto ti costa davvero</h3>
+        <div class="calc" id="pcalc">
+          <label>La tua offerta €<input type="number" inputmode="decimal" min="0" step="50" data-c="off" value="${a.prezzo_base || a.offerta_minima || ''}"></label>
+          <label>Diritti d'asta del portale %<input type="number" inputmode="decimal" min="0" step="0.5" data-c="dir" value="${dirittiDefault(a)}"></label>
+          <label>IVA sul prezzo<select data-c="iva"><option value="0">nessuna</option><option value="4">4%</option><option value="10">10%</option><option value="22">22%</option></select></label>
+          <label>Trasporto e altre spese €<input type="number" inputmode="decimal" min="0" step="50" data-c="tra" value=""></label>
+          <label style="grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;color:var(--ink2)"><input type="checkbox" data-c="ivad" checked style="width:auto"> IVA 22% sui diritti d'asta</label>
+          <div class="tot"><span>Totale stimato</span><b id="ctot">—</b></div>
+          <div class="det" id="cdet">Diritti e IVA cambiano da portale a portale: controlli sempre le condizioni di vendita. Il valore dei diritti resta salvato per quel portale.</div>
+        </div></div>
+      <div class="psec" id="parch"><h3 class="aih">Già visti in passato</h3><p class="aip">Cerco lotti simili chiusi negli ultimi 12 mesi…</p></div>
       <div class="psec"><h3 class="aih">A che punto sei</h3>
         <div class="stati" id="pstati">${STATI.map(([k,l]) => `<button data-set="${k}" class="${stati[a.id]===k ? 'st-'+k : ''}" aria-pressed="${stati[a.id]===k}">${l}</button>`).join('')}</div></div>
       <div class="psec"><h3 class="aih">Segnala a qualcuno</h3>
@@ -661,6 +872,7 @@ function openPanel(id){
         <textarea id="pnote" placeholder="Custode, sopralluogo, offerta massima, cauzione…">${esc(notes[a.id] || '')}</textarea><div class="saved" id="psaved"></div></div>
     </div>`;
   $('#panel').classList.add('on'); $('#scrim').classList.add('on');
+  calcola(); mostraArchivio(a);
   $('#pclose').focus();
 }
 const gestore = a => (a.portali || []).find(p => p.tipo === 'V');
@@ -688,10 +900,53 @@ function shareText(a, noLink){
 }
 function setStato(id, k){
   if (stati[id] === k) delete stati[id]; else stati[id] = k;
-  store.set('stati', stati);
+  store.set('stati', stati); segna('stato', id);
   document.querySelectorAll('#pstati [data-set]').forEach(b => { const on = stati[id] === b.dataset.set; b.setAttribute('aria-pressed', on); b.className = on ? 'st-' + b.dataset.set : ''; });
   renderStatiSide();
   toast(stati[id] ? 'Segnata come: ' + STATO_LBL[stati[id]] : 'Stato tolto');
+}
+function bandoHtml(a){
+  const b = a.bando; if (!b) return '';
+  const r = [];
+  if (b.modalita) r.push(['Come si offre', b.modalita]);
+  if (b.cauzione_pct) r.push(['Cauzione', b.cauzione_pct + '%' + (a.prezzo_base ? ` (${euro(a.prezzo_base * b.cauzione_pct / 100)}), assegno circolare per ogni lotto` : '')]);
+  if (a.scadenza) r.push(['Consegna della busta', 'entro ' + whenText(a.scadenza)]);
+  if (b.apertura) r.push(['Apertura buste', whenText(b.apertura)]);
+  if (b.pagamento_giorni) r.push(['Saldo', `entro ${b.pagamento_giorni} giorni dall'aggiudicazione`]);
+  if (b.visione) r.push(['Visione', b.visione]);
+  if (b.scansione) r.push(['Bando', 'è una scansione: i dettagli dei lotti vanno letti nel PDF']);
+  return `<div class="psec bandobox"><h3 class="aih">Come si partecipa</h3>${r.length ? `<dl>${r.map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+    ${b.pdf ? `<a class="btn" href="${esc(b.pdf)}" target="_blank" rel="noopener">Apri il bando PDF</a>` : ''}</div>`;
+}
+const portaleDi = a => { const g = gestore(a); if (g) return g.nome.replace(/^www\./, ''); try { return new URL(a.url).hostname.replace(/^www\./, ''); } catch(e) { return a.fonte; } };
+function dirittiDefault(a){
+  const p = portaleDi(a), mem = store.get('diritti', {});
+  if (mem[p] != null) return mem[p];
+  const cfg = (DATA && DATA.diritti) || {};
+  const k = Object.keys(cfg).find(d => p.endsWith(d.replace(/^www\./, '')));
+  return k ? cfg[k] : 0;
+}
+function calcola(){
+  const box = $('#pcalc'); if (!box || !current) return;
+  const v = k => box.querySelector(`[data-c="${k}"]`);
+  const off = parseFloat(v('off').value) || 0, dir = parseFloat(v('dir').value) || 0, iva = parseFloat(v('iva').value) || 0, tra = parseFloat(v('tra').value) || 0;
+  const diritti = off * dir / 100, ivaDir = v('ivad').checked ? diritti * .22 : 0, ivaPrezzo = off * iva / 100;
+  const tot = off + diritti + ivaDir + ivaPrezzo + tra;
+  $('#ctot').textContent = off ? euro(tot) : '—';
+  $('#cdet').textContent = off ? `Offerta ${euro(off)} + diritti ${euro(diritti)}${ivaDir ? ' + IVA diritti ' + euro(ivaDir) : ''}${ivaPrezzo ? ' + IVA ' + euro(ivaPrezzo) : ''}${tra ? ' + spese ' + euro(tra) : ''}${current.prezzo_base && off ? ` · ${off >= current.prezzo_base ? '+' : ''}${Math.round((off / current.prezzo_base - 1) * 100)}% sul prezzo base` : ''}` : 'Scrivi l\'offerta che hai in mente.';
+}
+const parole = t => new Set((t || '').toLowerCase().match(/[a-zà-ù0-9]{4,}/g) || []);
+async function mostraArchivio(a){
+  const box = $('#parch'); if (!box) return;
+  const arch = await archivio(); if (!current || current.id !== a.id) return;
+  const pa = parole(a.titolo + ' ' + (a.lista || []).join(' '));
+  const simili = arch.filter(x => x.c === a.categoria && x.id !== a.id)
+    .map(x => { const px = parole(x.t); let n = 0; pa.forEach(w => { if (px.has(w)) n++; }); return [n, x]; })
+    .filter(([n]) => n >= Math.min(2, pa.size)).sort((p, q) => q[0] - p[0] || q[1].d.localeCompare(p[1].d)).slice(0, 6).map(p => p[1]);
+  if (!simili.length) { box.innerHTML = '<h3 class="aih">Già visti in passato</h3><p class="aip">Nessun lotto simile tra quelli chiusi che il monitor ha visto finora. L\'archivio cresce ogni giorno.</p>'; return; }
+  box.innerHTML = `<h3 class="aih">Già visti in passato</h3>
+    <p class="aip">Lotti simili chiusi. Il PVP non pubblica i prezzi di aggiudicazione: "tornato all'asta" vuol dire che è andato deserto, "non più rivisto" che probabilmente è stato venduto.</p>
+    <ul class="arch">${simili.map(x => `<li><span class="tt" style="color:var(--ink);font-size:13.5px;text-align:left" title="${esc(x.t)}">${esc(x.t)}</span><span>${x.p ? euro(x.p) : '—'} · ${esc(x.d.split('-').reverse().join('/'))}<br>${x.e === 'deserta' ? 'tornato all\'asta' : 'non più rivisto'}${x.luogo ? ' · ' + esc(x.luogo) : ''}</span></li>`).join('')}</ul>`;
 }
 function aiPrompt(a){
   const r = [];
@@ -743,7 +998,7 @@ let tt; function toast(m){ const t = $('#toast'); t.textContent = m; t.classList
 
 function toggleFav(id){
   if (favs[id]) delete favs[id]; else favs[id] = Date.now();
-  store.set('preferiti', favs);
+  store.set('preferiti', favs); segna('fav', id);
   return !!favs[id];
 }
 
@@ -752,6 +1007,7 @@ $('#q').addEventListener('input', e => { st.q = e.target.value; save(true); });
 for (const k of ['pmin','pmax']) $('#'+k).addEventListener('input', e => { st[k] = e.target.value; save(true); });
 $('#noprice').addEventListener('change', e => { st.noprice = e.target.checked; save(); });
 $('#regione').addEventListener('change', e => { st.regione = e.target.value; save(); });
+$('#km').addEventListener('change', e => { st.km = e.target.value; save(); });
 $('#ordine').addEventListener('change', e => { st.ordine = e.target.value; save(); });
 const tog = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
 $('#cats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; st.cats = tog(st.cats, b.dataset.cat); b.setAttribute('aria-pressed', st.cats.includes(b.dataset.cat)); save(); });
@@ -761,6 +1017,11 @@ $('#stati').addEventListener('click', e => { const b = e.target.closest('[data-s
 $('#srcs').addEventListener('click', e => { const b = e.target.closest('[data-src]'); if (!b) return; st.srcs = tog(st.srcs, b.dataset.src); b.setAttribute('aria-pressed', st.srcs.includes(b.dataset.src)); save(); });
 document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { st.quick = tog(st.quick, b.dataset.q); b.setAttribute('aria-pressed', st.quick.includes(b.dataset.q)); save(); }));
 document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { st.vista = b.dataset.v; syncControls(); save(); }));
+function railNav(){ const r = $('#rail'); $('#railL').hidden = r.scrollLeft < 10; $('#railR').hidden = r.scrollLeft + r.clientWidth >= r.scrollWidth - 10; }
+$('#rail').addEventListener('scroll', railNav, {passive:true});
+$('#railL').addEventListener('click', () => { const r = $('#rail'); r.scrollLeft -= r.clientWidth * .8; });
+$('#railR').addEventListener('click', () => { const r = $('#rail'); r.scrollLeft += r.clientWidth * .8; });
+window.addEventListener('resize', railNav);
 $('#rail').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (!b || b.disabled) return; st.day = st.day === b.dataset.day ? '' : b.dataset.day; save(); });
 $('#active').addEventListener('click', e => {
   const b = e.target.closest('[data-rm]'); if (!b) return; const k = b.dataset.rm;
@@ -794,14 +1055,28 @@ $('#panel').addEventListener('click', e => {
   }
   const f = e.target.closest('#pfav'); if (f) { const on = toggleFav(current.id); f.setAttribute('aria-pressed', on); f.lastChild.textContent = on ? 'Seguita' : 'Segui'; }
 });
+$('#panel').addEventListener('input', e => { if (e.target.closest('#pcalc')) { if (e.target.dataset.c === 'dir' && current) { const m = store.get('diritti', {}); m[portaleDi(current)] = parseFloat(e.target.value) || 0; store.set('diritti', m); } calcola(); } });
+$('#panel').addEventListener('change', e => { if (e.target.closest('#pcalc')) calcola(); });
 let nt; $('#panel').addEventListener('input', e => {
   if (e.target.id !== 'pnote' || !current) return;
   const v = e.target.value.trim(); if (v) notes[current.id] = v; else delete notes[current.id];
-  clearTimeout(nt); nt = setTimeout(() => { store.set('note', notes); $('#psaved').textContent = 'Nota salvata su questo dispositivo'; }, 400);
+  clearTimeout(nt); nt = setTimeout(() => { store.set('note', notes); segna('nota', current.id); $('#psaved').textContent = TOKEN ? 'Nota salvata e sincronizzata' : 'Nota salvata su questo dispositivo'; }, 400);
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); $('#side').classList.remove('on'); $('#scrim').classList.remove('on'); } if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); $('#q').focus(); } });
 $('#openSheet').addEventListener('click', () => { $('#side').classList.add('on'); $('#scrim').classList.add('on'); });
 $('#closeSheet').addEventListener('click', () => { $('#side').classList.remove('on'); $('#scrim').classList.remove('on'); });
+$('#syncbtn').addEventListener('click', () => { $('#synctok').value = TOKEN ? '••••••••••' : ''; $('#syncmsg').textContent = TOKEN ? 'Sincronizzazione attiva.' : ''; $('#syncdlg').hidden = false; });
+$('#syncclose').addEventListener('click', () => { $('#syncdlg').hidden = true; });
+$('#syncoff').addEventListener('click', () => { TOKEN = ''; try { localStorage.removeItem('gh_token'); } catch(e) {} syncStato('', 'Solo questo dispositivo'); $('#syncdlg').hidden = true; toast('Sincronizzazione disattivata su questo dispositivo'); });
+$('#syncform').addEventListener('submit', async e => {
+  e.preventDefault(); const t = $('#synctok').value.trim();
+  if (t && !t.startsWith('•')) { TOKEN = t; store.set('gh_token', TOKEN); }
+  if (!TOKEN) return;
+  if (!PW) { $('#syncmsg').textContent = 'La sincronizzazione richiede che i dati siano cifrati con la password.'; return; }
+  $('#syncmsg').textContent = 'Provo a collegarmi…'; await sincronizza();
+  if ($('#syncbtn').classList.contains('ok')) { $('#syncdlg').hidden = true; toast('Sincronizzazione attiva'); } else $('#syncmsg').textContent = 'Non riesco a collegarmi: controlla il token e i permessi (Contents: Read and write).';
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && TOKEN) scaricaUtente(); });
 $('#theme').addEventListener('click', () => {
   const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   const nx = cur === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = nx; store.set('tema', nx);

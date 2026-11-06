@@ -24,13 +24,27 @@ from pathlib import Path
 import requests
 import yaml
 
+from cifra import cifra, decifra
+
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config.yaml"
 PREF = ROOT / "preferenze.json"
+PRIV = ROOT / "privato.enc"
+CHIAVE = os.environ.get("CHIAVE_DATI", "").strip()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT = str(os.environ.get("TELEGRAM_CHAT_ID", "")).strip()
 API = f"https://api.telegram.org/bot{TOKEN}"
-DATI_URL = os.environ.get("DATI_URL", "")
+DATI_URL = os.environ.get("DATI_URL", "")   # cartella dei dati della dashboard (…/data)
+
+
+def dati_dashboard() -> dict:
+    """Scarica i dati della dashboard (cifrati se c'è la password)."""
+    base = DATI_URL.rsplit("/", 1)[0] if DATI_URL.endswith(".json") else DATI_URL.rstrip("/")
+    if CHIAVE:
+        r = requests.get(base + "/aste.enc", timeout=90)
+        if r.status_code == 200:
+            return decifra(r.text, CHIAVE)
+    return requests.get(base + "/aste.json", timeout=90).json()
 
 CATEGORIE = ["auto_moto", "immobili", "macchinari", "orologi_gioielli", "moda_lusso", "sport_outdoor", "nautica"]
 COMANDI = [
@@ -49,6 +63,8 @@ COMANDI = [
     ("includi", "Togli un'esclusione: /includi rottame"),
     ("casa", "Regioni vicino a casa: /casa Abruzzo, Marche"),
     ("punti", "Segnali minimi per un'Occasione: /punti 3"),
+    ("raggio", "Km da casa per 'vicino a casa': /raggio 80"),
+    ("modalita", "Avvisi subito o nel riepilogo del mattino: /modalita riepilogo"),
     ("fonti", "Fonti attive"),
     ("fonte", "Accendi o spegni una fonte: /fonte demanio off"),
     ("pausa", "Sospendi gli avvisi"),
@@ -84,11 +100,15 @@ def euro(v):
 
 
 class Impostazioni:
-    """config.yaml + preferenze.json: le chiavi in preferenze.json vincono."""
+    """config.yaml + impostazioni personali (privato.enc cifrato, oppure preferenze.json in chiaro)."""
 
     def __init__(self):
         self.base = yaml.safe_load(CONFIG.read_text(encoding="utf-8")) or {}
-        self.pref = json.loads(PREF.read_text(encoding="utf-8")) if PREF.exists() else {}
+        self.cifrato = bool(CHIAVE and PRIV.exists())
+        if self.cifrato:
+            self.pref = decifra(PRIV.read_text(encoding="utf-8"), CHIAVE)
+        else:
+            self.pref = json.loads(PREF.read_text(encoding="utf-8")) if PREF.exists() else {}
         self.cambiato = False
 
     def get(self, k, default=None):
@@ -101,8 +121,13 @@ class Impostazioni:
         self.cambiato = True
 
     def salva(self):
-        if self.cambiato:
-            PREF.write_text(json.dumps(self.pref, ensure_ascii=False, indent=1), encoding="utf-8")
+        if not self.cambiato:
+            return None
+        if self.cifrato:
+            PRIV.write_text(cifra(self.pref, CHIAVE), encoding="utf-8")
+            return PRIV.name
+        PREF.write_text(json.dumps(self.pref, ensure_ascii=False, indent=1), encoding="utf-8")
+        return PREF.name
 
 
 def voce_txt(i, v):
@@ -157,7 +182,7 @@ def esegui(cmd, arg, imp: Impostazioni, flag: dict) -> str:
     if cmd == "stato":
         righe = []
         try:
-            d = requests.get(DATI_URL, timeout=60).json() if DATI_URL else {}
+            d = dati_dashboard() if DATI_URL else {}
             righe.append(f"Ultimo controllo: <b>{e(d.get('aggiornato', '?').replace('T', ' '))}</b>")
             righe.append(f"Aste in dashboard: <b>{len(d.get('aste', []))}</b>")
             n_occ = sum(1 for a in d.get("aste", []) if a.get("occasione"))
@@ -178,7 +203,7 @@ def esegui(cmd, arg, imp: Impostazioni, flag: dict) -> str:
         if not arg:
             return "Scrivi cosa cercare, per esempio: /cerca rolex"
         try:
-            d = requests.get(DATI_URL, timeout=60).json()
+            d = dati_dashboard()
         except Exception:  # noqa: BLE001
             return "Dati della dashboard non raggiungibili in questo momento."
         parole = arg.lower().split()
@@ -278,6 +303,22 @@ def esegui(cmd, arg, imp: Impostazioni, flag: dict) -> str:
         imp.set(chiave, cur)
         return f"Tolte: {e(', '.join(tolte)) or 'nessuna (non c’erano)'}"
 
+    if cmd == "raggio":
+        if not (arg or "").strip().isdigit():
+            return "Scrivi i km, per esempio /raggio 80"
+        occ = imp.get("occasioni") or {}
+        occ["raggio_casa_km"] = int(arg.strip())
+        imp.set("occasioni", occ)
+        return f"Ora «vicino a casa» vuol dire entro <b>{occ['raggio_casa_km']} km</b>."
+
+    if cmd == "modalita":
+        v = (arg or "").strip().lower()
+        if v not in ("subito", "riepilogo"):
+            return ("Scrivi /modalita subito (ogni lotto nuovo ti arriva appena esce) oppure "
+                    "/modalita riepilogo (subito solo la tua lista, il resto nel riepilogo del mattino).")
+        imp.set("avvisi_modalita", v)
+        return "Avvisi: " + ("subito, appena esce un lotto." if v == "subito" else "subito solo la tua lista, il resto nel riepilogo del mattino.")
+
     if cmd in ("casa", "punti"):
         occ = imp.get("occasioni") or {}
         if cmd == "casa":
@@ -317,6 +358,9 @@ def esegui(cmd, arg, imp: Impostazioni, flag: dict) -> str:
         return "Avvio un controllo dei portali adesso: ci vogliono alcuni minuti."
 
     if cmd == "reset":
+        if imp.cifrato:
+            return ("Le impostazioni sono cifrate: per riportarle a una versione precedente usa "
+                    "«Apri impostazioni.bat» sul PC, modifica privato.yaml e poi «Cifra impostazioni.bat».")
         if not imp.pref:
             return "Stai già usando le impostazioni di config.yaml."
         imp.pref = {}
@@ -341,7 +385,7 @@ def main():
     r = tg("getUpdates", timeout=0, allowed_updates=json.dumps(["message"]))
     upd = r.get("result") or []
     if not upd:
-        output("modificato", "false"); output("aggiorna", "false"); output("conferma", "")
+        output("modificato", "false"); output("aggiorna", "false"); output("conferma", ""); output("file", "")
         return
     # menù dei comandi (una volta ogni tanto non fa male)
     tg("setMyCommands", commands=json.dumps([{"command": c, "description": d[:250]} for c, d in COMANDI]))
@@ -361,10 +405,11 @@ def main():
         except Exception as ex:  # noqa: BLE001
             risposta = "Errore nell'eseguire il comando: " + e(ex)
         rispondi(risposta)
-    imp.salva()
+    file_salvato = imp.salva()
     if imp.cambiato:
         flag["aggiorna"] = True
     output("modificato", "true" if imp.cambiato else "false")
+    output("file", file_salvato or "")
     output("aggiorna", "true" if flag["aggiorna"] else "false")
     output("conferma", str(upd[-1]["update_id"] + 1))
 

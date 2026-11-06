@@ -2,3 +2,6 @@ __pycache__/
 docs/data/
 pc/
 token.txt
+privato.yaml
+privato_iniziale.yaml
+*.local

@@ -28,8 +28,10 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
+import extra
+from cifra import cifra, decifra, e_cifrato
+
 ROOT = Path(__file__).resolve().parent
-DATA_FILE = ROOT / "docs" / "data" / "aste.json"
 CONFIG_FILE = ROOT / "config.yaml"
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -350,7 +352,33 @@ DEMANIO = "https://www.agenziademanio.it"
 DEMANIO_LISTA = DEMANIO + "/it/gare-aste/beni-mobili-e-veicoli-confiscati/"
 
 
-def demanio_scarica(s, dal: dt.date, max_pagine=15):
+def demanio_bando(s, url_gara: str) -> dict:
+    """Apre la pagina della gara, scarica il bando PDF più recente e lo legge."""
+    r = get_retry(lambda: s.get(url_gara, timeout=60))
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+    pdf = []
+    for l in soup.select("main a[href$='.pdf'], a[href$='.pdf']"):
+        etich = l.get_text(" ", strip=True)
+        if re.search(r"bando|avviso", etich, re.I) and not re.search(r"annullament|rinvio|revoca|determin|esito|graduatori", etich, re.I):
+            pdf.append((1 if re.search(r"aggiornat|rettific", etich, re.I) else 0, etich, l["href"]))
+    if not pdf:
+        return {"pdf": None}
+    pdf.sort(key=lambda x: x[0], reverse=True)
+    url = pdf[0][2] if pdf[0][2].startswith("http") else DEMANIO + pdf[0][2]
+    b = get_retry(lambda: s.get(url, timeout=120)).content
+    try:
+        testo = extra.testo_pdf(b)
+    except Exception:  # noqa: BLE001
+        testo = ""
+    if len(testo.strip()) < 200:
+        return {"pdf": url, "scansione": True}
+    info = extra.leggi_bando(testo)
+    info["pdf"] = url
+    return info
+
+
+def demanio_scarica(s, dal: dt.date, cache: dict, max_pagine=15):
     oggi_iso = oggi().isoformat()
     for p in range(1, max_pagine + 1):
         r = get_retry(lambda: s.get(DEMANIO_LISTA, params={"p": p}, timeout=60))
@@ -396,7 +424,36 @@ def demanio_scarica(s, dal: dt.date, max_pagine=15):
                 a["provincia"] = m.group(1).strip()
             cat = classifica_testo(testo)
             a["categoria"] = cat if cat != "altro" else ("auto_moto" if re.search(r"veicol|autovett", testo, re.I) else "altro")
-            yield a
+            if href not in cache:
+                try:
+                    cache[href] = demanio_bando(s, a["url"])
+                    log(f"   bando letto: {len(cache[href].get('lotti') or [])} lotti")
+                except Exception as e:  # noqa: BLE001
+                    log("   bando non leggibile:", e)
+                    cache[href] = {"pdf": None}
+            info = {k: v for k, v in cache[href].items() if k != "lotti"}
+            a["bando"] = info
+            lotti = [x for x in cache[href].get("lotti") or [] if not x.get("revocato") and x.get("prezzo")]
+            if not lotti:
+                yield a
+                continue
+            for x in lotti:
+                b = dict(a)
+                b["id"] = f"{a['id']}-l{x['n']}"
+                b["titolo"] = x["titolo"] + (f" ({x['anno']})" if x.get("anno") else "")
+                det = [f"Lotto {x['n']}"] + [v for v in (x.get("tipo"), x.get("condizioni") and "condizioni " + x["condizioni"].lower(),
+                                                         x.get("anno") and "immatricolazione " + x["anno"]) if v]
+                if x.get("dettagli_nel_bando"):
+                    det.append("dettagli del veicolo nel bando PDF")
+                b["descrizione"] = " · ".join(det) + " — " + titolo
+                b["prezzo_base"] = x["prezzo"]
+                b["lotto"] = f"Lotto {x['n']}"
+                if x.get("sigla"):
+                    b["provincia"] = x["sigla"]
+                tb = b["titolo"] + " " + (x.get("tipo") or "")
+                cat = classifica_testo(tb, mobile=True)
+                b["categoria"] = cat if cat != "altro" else a["categoria"]
+                yield b
         if vecchie == len(cards):
             break
         time.sleep(0.5)
@@ -647,8 +704,12 @@ def valuta_occasione(a, storico: dict, occ_cfg: dict, oggi_iso: str):
     sog = soglie.get(a["categoria"])
     if sog and a.get("prezzo_base") and a["prezzo_base"] <= sog:
         motivi.append(f"prezzo base sotto {euro(sog)} per {CATEGORIE_LABEL.get(a['categoria'], a['categoria']).lower()}")
+    raggio = occ_cfg.get("raggio_casa_km")
     casa = {r.lower() for r in occ_cfg.get("regioni_casa") or []}
-    if casa and a.get("regione", "").lower() in casa:
+    if raggio and a.get("km") is not None:
+        if a["km"] <= float(raggio):
+            motivi.append(f"a {a['km']} km da casa")
+    elif casa and a.get("regione", "").lower() in casa:
         motivi.append(f"vicino a casa ({a['regione']})")
     if a.get("parole"):
         motivi.append("contiene: " + ", ".join(a["parole"][:4]))
@@ -709,19 +770,36 @@ def telegram_invia(testo: str):
     return r.ok
 
 
+GG_IT = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"]
+MM_IT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"]
+
+
+def quando_it(sc):
+    if not sc:
+        return "—"
+    try:
+        d = dt.datetime.fromisoformat(sc if len(sc) > 10 else sc + "T00:00")
+    except ValueError:
+        return sc
+    return f"{GG_IT[d.weekday()]} {d.day} {MM_IT[d.month - 1]}" + (f" ore {sc[11:16]}" if len(sc) > 10 else "")
+
+
 def messaggio(a, regola):
     e = html.escape
     luogo = ", ".join(dict.fromkeys(x for x in [a["citta"], a["provincia"], a["regione"]] if x)) or a["tribunale"] or ""
+    if a.get("km") is not None:
+        luogo += f" · {a['km']} km da casa"
+    g = next((p for p in a.get("portali") or [] if p.get("tipo") == "V"), None)
     righe = [
         f"🔔 <b>{e(regola)}</b>",
         f"<b>{e(a['titolo'])}</b>",
         f"💶 Base {euro(a['prezzo_base'])}" + (f" · min {euro(a['offerta_minima'])}" if a["offerta_minima"] else "")
         + (f" · ribasso {a['ribasso_pct']}%" if a["ribasso_pct"] else ""),
         f"📍 {e(luogo)}" if luogo else None,
-        f"⏰ {a['scadenza'].replace('T', ' ore ') if a['scadenza'] else '—'}",
-        f"🏷 {e(CATEGORIE_LABEL.get(a['categoria'], a['categoria']))} · {a['fonte']}",
+        f"⏰ chiude {quando_it(a['scadenza'])}",
+        f"🏷 {e(CATEGORIE_LABEL.get(a['categoria'], a['categoria']))} · {a['fonte']}" + (f" › {e(g['nome'])}" if g else ""),
         ("⚡ <b>Occasione</b>: " + e("; ".join(a["occasione"]["motivi"]))) if a.get("occasione") else None,
-        f"<a href=\"{e(a['url'])}\">Apri la scheda</a>",
+        (f"<a href=\"{e(g['url'])}\">Fai l'offerta su {e(g['nome'])}</a> · " if g else "") + f"<a href=\"{e(a['url'])}\">Scheda {e(a['fonte'])}</a>",
     ]
     return "\n".join(r for r in righe if r)
 
@@ -739,22 +817,77 @@ def carica_json(path, default):
         return default
 
 
-def main():
-    cfg = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8")) or {}
-    pref_file = ROOT / "preferenze.json"   # modifiche fatte dal bot Telegram: vincono su config.yaml
-    if pref_file.exists():
+# ---------------------------------------------------------------- dati e impostazioni private (cifrati)
+
+CHIAVE = os.environ.get("CHIAVE_DATI", "").strip()
+DATI_DIR = ROOT / "docs" / "data"
+
+
+def leggi_dato(nome: str, default):
+    """docs/data/<nome>.enc (cifrato) oppure <nome>.json."""
+    enc, js = DATI_DIR / f"{nome}.enc", DATI_DIR / f"{nome}.json"
+    if CHIAVE and enc.exists() and enc.stat().st_size > 0:
         try:
-            cfg.update(json.loads(pref_file.read_text(encoding="utf-8")))
-        except ValueError:
-            log("preferenze.json non leggibile: uso solo config.yaml")
+            return decifra(enc.read_text(encoding="utf-8"), CHIAVE)
+        except Exception as e:  # noqa: BLE001
+            log(f"ATTENZIONE: {nome}.enc non si decifra ({e.__class__.__name__}): la password è cambiata?")
+            return default
+    return carica_json(js, default)
+
+
+def scrivi_dato(nome: str, dati):
+    DATI_DIR.mkdir(parents=True, exist_ok=True)
+    enc, js = DATI_DIR / f"{nome}.enc", DATI_DIR / f"{nome}.json"
+    if CHIAVE:
+        enc.write_text(cifra(dati, CHIAVE), encoding="utf-8")
+        js.unlink(missing_ok=True)       # in chiaro non deve finire online
+    else:
+        js.write_text(json.dumps(dati, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def carica_impostazioni() -> dict:
+    """config.yaml (pubblico) + impostazioni personali: privato.enc se c'è la password,
+    altrimenti privato_iniziale.yaml e preferenze.json (vecchio formato, in chiaro)."""
+    cfg = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8")) or {}
+    priv_enc = ROOT / "privato.enc"
+    if CHIAVE and priv_enc.exists():
+        try:
+            cfg.update(decifra(priv_enc.read_text(encoding="utf-8"), CHIAVE))
+            return cfg
+        except Exception as e:  # noqa: BLE001
+            log(f"ATTENZIONE: privato.enc non si decifra ({e.__class__.__name__})")
+    ini = ROOT / "privato_iniziale.yaml"
+    if ini.exists():
+        cfg.update(yaml.safe_load(ini.read_text(encoding="utf-8")) or {})
+    pref = ROOT / "preferenze.json"
+    if pref.exists():
+        cfg.update(carica_json(pref, {}))
+    return cfg
+
+
+def carica_utente() -> dict:
+    """Stelle, stati e note sincronizzati dalla dashboard (utente.enc nel repository)."""
+    f = ROOT / "utente.enc"
+    if not f.exists():
+        return {}
+    try:
+        t = f.read_text(encoding="utf-8")
+        return decifra(t, CHIAVE) if (CHIAVE and e_cifrato(t)) else json.loads(t)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def main():
+    cfg = carica_impostazioni()
     filtri = Filtri(cfg)
     regole = regole_avviso(cfg)
-    dati = carica_json(DATA_FILE, {"aste": []})
+    dati = leggi_dato("aste", {"aste": []})
     esistenti = {a["id"]: a for a in dati.get("aste", [])}
     ultimo = dati.get("aggiornato")
     primo_avvio = not ultimo
 
     oggi_d = oggi()
+    adesso_dt = dt.datetime.now(TZ).replace(tzinfo=None)
     if primo_avvio:
         dal = oggi_d - dt.timedelta(days=int(cfg.get("backfill_giorni", 30)))
     else:
@@ -762,8 +895,10 @@ def main():
 
     s = session()
     raccolti, esito_fonti = [], {}
+    stato = dati.get("stato") or {}
 
     attive = {k.lower(): bool(v) for k, v in (cfg.get("fonti") or {}).items()}
+
     def attiva(nome):
         return attive.get(nome.lower(), True)
 
@@ -773,7 +908,7 @@ def main():
             raise _Spenta()
         regioni = pvp_mappa_regioni(s)
         n = 0
-        cat_mobili = None if (filtri.kw or "sport_outdoor" in filtri.cat_attive) else list(PVP_CAT)
+        cat_mobili = None if (filtri.kw or filtri.lista.voci or "sport_outdoor" in filtri.cat_attive) else list(PVP_CAT)
         for tipo in ["MOBILI", "IMMOBILI"]:
             if tipo == "IMMOBILI" and "immobili" not in filtri.cat_attive:
                 continue
@@ -800,7 +935,7 @@ def main():
                     a["categoria"] = classifica_testo(a["titolo"] + " " + a.get("descrizione", ""))
                     raccolti.append(a)
                     gobid_visti.add(a["id"])
-                eta = (dt.datetime.now(TZ).replace(tzinfo=None) - dt.datetime.fromisoformat(g["aggiornato"])).total_seconds() / 3600
+                eta = (adesso_dt - dt.datetime.fromisoformat(g["aggiornato"])).total_seconds() / 3600
                 esito_fonti["Gobid"] = {"ok": True, "letti": len(gobid_visti), "dal_pc": g["aggiornato"]}
                 if eta > 30:
                     esito_fonti["Gobid"] = {"ok": False, "errore": f"il PC non aggiorna Gobid da {int(eta)} ore (acceso?). Restano le aste già raccolte."}
@@ -810,14 +945,12 @@ def main():
                 esito_fonti["Gobid"] = {"ok": False, "errore": str(e)[:300]}
 
     # --- fonti aggiuntive. Una fonte al suo primo giro non manda avvisi (caricherebbe tutto lo storico).
-    stato = dati.get("stato") or {}
     inizializzate = set(stato.get("fonti_inizializzate") or (["PVP"] if not primo_avvio else []))
-    # Gobid conta come avviato solo dopo il primo invio dal PC (prima versione lo segnava per errore)
     if not stato.get("gobid_ricevuto"):
         inizializzate.discard("Gobid")
     if esito_fonti.get("Gobid", {}).get("ok"):
         stato["gobid_ricevuto"] = True
-    elenco_completo = {}  # fonti che restituiscono tutte le aste attive: si possono togliere quelle sparite
+    elenco_completo = {}
 
     def raccogli(nome, generatore, completo=False):
         if not attiva(nome.replace(" ", "_")) or not attiva(nome):
@@ -835,31 +968,31 @@ def main():
             traceback.print_exc()
             esito_fonti[nome] = {"ok": False, "errore": str(e)[:300]}
 
+    cache_bandi = stato.setdefault("demanio_bandi", {})
     raccogli("Demanio", demanio_scarica(session(), dal if "Demanio" in inizializzate
-                                        else oggi_d - dt.timedelta(days=120)))
+                                        else oggi_d - dt.timedelta(days=120), cache_bandi))
     ultimo_id = int(stato.get("inddisc_ultimo_id") or 0)
     raccogli("Industrial Discount", inddisc_scarica(session(), ultimo_id, "Industrial Discount" not in inizializzate))
     raccogli("AsteBusiness", (astebusiness_normalizza(x) for x in astebusiness_scarica(session())), completo=True)
     if gobid_visti and esito_fonti.get("Gobid", {}).get("ok"):
         elenco_completo["Gobid"] = gobid_visti
-
     if INDDISC_STATO.get("max_id"):
         stato["inddisc_ultimo_id"] = max(INDDISC_STATO["max_id"], ultimo_id)
 
-    # --- doppioni: un lotto già presente sul PVP non viene ripetuto
+    # --- doppioni dichiarati (AsteBusiness indica il numero PVP)
     pvp_ids = {a["id"] for a in raccolti if a["fonte"] == "PVP"} | {k for k in esistenti if k.startswith("pvp-")}
     raccolti = [a for a in raccolti if not (a.get("pvp_id") and f"pvp-{a['pvp_id']}" in pvp_ids)]
 
     # --- filtra, unisci, individua i nuovi
     nuovi = []
-    adesso = dt.datetime.now(TZ).strftime("%Y-%m-%dT%H:%M")
+    adesso = adesso_dt.strftime("%Y-%m-%dT%H:%M")
     for a in raccolti:
         if not filtri.tieni(a):
             continue
         prec = esistenti.get(a["id"])
         if prec:
             a["visto_il"] = prec.get("visto_il", adesso)
-            for k in ("portali", "immagine", "foto_cercata"):
+            for k in ("portali", "immagine", "foto_cercata", "bando"):
                 if prec.get(k) and not a.get(k):
                     a[k] = prec[k]
         else:
@@ -869,7 +1002,6 @@ def main():
                 nuovi.append(a)
         esistenti[a["id"]] = a
 
-    # --- portali delle aste PVP (dove si fa l'offerta), a blocchi per non pesare sul PVP
     if attiva("pvp") and esito_fonti.get("PVP", {}).get("ok"):
         try:
             pvp_arricchisci(list(esistenti.values()), int(cfg.get("pvp_portali_per_giro", 1200)))
@@ -882,32 +1014,50 @@ def main():
     for a in esistenti.values():
         a.pop("_nuova", None)
 
-    # --- storico prezzi (per riconoscere i lotti tornati all'asta a prezzo più basso)
     storico = stato.get("storico_prezzi") or {}
     occ_cfg = cfg.get("occasioni") or {}
+    casa = cfg.get("casa") or {}
+    casa_xy = (float(casa["lat"]), float(casa["lon"])) if casa.get("lat") and casa.get("lon") else None
 
-    # --- rimuovi scadute e aste non più in elenco
+    # --- separa attive e chiuse
     soglia = (oggi_d - dt.timedelta(days=1)).isoformat()
-    tenute = []
+    tenute, chiuse = [], []
     for a in esistenti.values():
         if a["scadenza"] and a["scadenza"][:10] < soglia:
+            chiuse.append(a)
             continue
         if a["fonte"] in elenco_completo and a["id"] not in elenco_completo[a["fonte"]]:
             continue
         if a.get("pvp_id") and f"pvp-{a['pvp_id']}" in pvp_ids:
             continue
+        tenute.append(a)
+
+    tenute, n_doppi = extra.togli_doppioni(tenute)
+    if n_doppi:
+        log(f"  Doppioni tra portali tolti: {n_doppi}")
+    extra.assegna_km(tenute, casa_xy, stato.setdefault("coordinate", {}))
+    for a in tenute:
         a["parole"] = filtri.parole_trovate(a)
         a["lista"] = filtri.lista.trova(a) or None
         valuta_occasione(a, storico, occ_cfg, oggi_d.isoformat())
-        tenute.append(a)
     tenute.sort(key=lambda a: (a.get("scadenza") or "9999"))
 
-    # --- avvisi Telegram (non al primo avvio: sarebbero migliaia)
+    # --- archivio dei lotti chiusi (per vedere cosa è già passato e a che prezzo)
+    archivio = leggi_dato("archivio", [])
+    extra.archivia(archivio, chiuse, chiave_storico, oggi_d.isoformat())
+    extra.segna_deserte(archivio, tenute, chiave_storico)
+
+    # --- avvisi Telegram
     inviati = 0
+    modalita = cfg.get("avvisi_modalita", "subito")
     if cfg.get("avvisi_in_pausa"):
         log("Avvisi in pausa (comando /pausa)")
     elif not primo_avvio:
-        da_avvisare = [(a, regola_che_scatta(a, regole)) for a in sorted(nuovi, key=lambda a: 0 if a.get("lista") else 1)]
+        in_dashboard = {a["id"] for a in tenute}
+        candidati = sorted((a for a in nuovi if a["id"] in in_dashboard), key=lambda a: 0 if a.get("lista") else 1)
+        if modalita == "riepilogo":
+            candidati = [a for a in candidati if a.get("lista")]   # il resto arriva nel riepilogo del mattino
+        da_avvisare = [(a, regola_che_scatta(a, regole)) for a in candidati]
         da_avvisare = [(a, r) for a, r in da_avvisare if r]
         massimo = int(cfg.get("max_avvisi_per_giro", 25))
         for a, r in da_avvisare[:massimo]:
@@ -921,21 +1071,40 @@ def main():
         telegram_invia(f"✅ Monitor aste attivo. Primo caricamento completato: <b>{len(tenute)}</b> aste in dashboard. "
                        "Da ora ti scrivo solo per i lotti nuovi che rispettano i tuoi avvisi.")
 
+    if not cfg.get("avvisi_in_pausa") and not primo_avvio:
+        # promemoria sulle aste che segui
+        try:
+            n = extra.promemoria(tenute, carica_utente(), stato.setdefault("promemoria", {}), adesso_dt, telegram_invia, euro)
+            if n:
+                log(f"  Promemoria inviati: {n}")
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+        # riepilogo del mattino
+        ora_riep = cfg.get("riepilogo_ora", 8)
+        if ora_riep is not None and adesso_dt.hour == int(ora_riep) and stato.get("ultimo_riepilogo") != oggi_d.isoformat():
+            telegram_invia(extra.riepilogo(tenute, adesso_dt, euro))
+            stato["ultimo_riepilogo"] = oggi_d.isoformat()
+    # allarme se una fonte smette di funzionare
+    extra.controlla_fonti(esito_fonti, stato.setdefault("errori_fonti", {}), telegram_invia)
+
     # --- salva
-    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     out = {
         "aggiornato": adesso,
         "fonti": esito_fonti,
         "categorie": CATEGORIE_LABEL,
         "nuovi_ultimo_giro": len(nuovi),
+        "casa": bool(casa_xy),
+        "diritti": cfg.get("diritti_portali") or {},
         "stato": {**stato, "storico_prezzi": {k: v for k, v in storico.items()
                                               if v[1] >= (oggi_d - dt.timedelta(days=730)).isoformat()},
+                  "demanio_bandi": dict(list(cache_bandi.items())[-300:]),
                   "fonti_inizializzate": sorted(inizializzate | {k for k, v in esito_fonti.items() if v.get("ok")})},
         "aste": tenute,
     }
-    DATA_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    scrivi_dato("aste", out)
+    scrivi_dato("archivio", archivio)
 
-    log(f"Fatto. In dashboard: {len(tenute)} · nuovi: {len(nuovi)} · avvisi inviati: {inviati} · fonti: {esito_fonti}")
+    log(f"Fatto. In dashboard: {len(tenute)} · nuovi: {len(nuovi)} · avvisi inviati: {inviati} · archivio: {len(archivio)} · fonti: {esito_fonti}")
     if not any(f.get("ok") for f in esito_fonti.values()):
         sys.exit(1)
 

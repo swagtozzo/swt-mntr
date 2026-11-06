@@ -2,11 +2,11 @@ name: Monitor aste
 
 on:
   schedule:
-    - cron: "17 5-21 * * *"   # ogni ora dalle 6 alle 22 circa (ora italiana)
-  workflow_dispatch: {}       # pulsante "Run workflow" per lanciarlo a mano
+    - cron: "17 * * * *"      # ogni ora, anche di notte (servono per i promemoria)
+  workflow_dispatch: {}       # pulsante "Run workflow" o comando /aggiorna del bot
   push:
     branches: [main]
-    paths: ["config.yaml", "docs/index.html", "monitor.py", "gobid/gobid.json"]
+    paths: ["config.yaml", "privato.enc", "preferenze.json", "docs/index.html", "monitor.py", "extra.py", "gobid/gobid.json"]
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -37,13 +37,17 @@ jobs:
       - name: Recupera i dati del giro precedente
         run: |
           mkdir -p docs/data
-          URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/data/aste.json"
-          curl -fsSL "$URL" -o docs/data/aste.json || echo "Nessun dato precedente: primo avvio"
+          BASE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/data"
+          for f in aste.enc aste.json archivio.enc archivio.json; do
+            curl -fsSL "$BASE/$f" -o "docs/data/$f" || rm -f "docs/data/$f"
+          done
+          ls -la docs/data
 
       - name: Controlla i portali
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CHIAVE_DATI: ${{ secrets.CHIAVE_DATI }}
         run: python monitor.py
 
       - uses: actions/configure-pages@v5

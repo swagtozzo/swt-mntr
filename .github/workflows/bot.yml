@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write     # per salvare preferenze.json
+  contents: write     # per salvare le impostazioni cambiate col bot
   actions: write      # per rilanciare il monitor dopo una modifica
 
 concurrency:
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   comandi:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
 
@@ -24,24 +24,25 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install --quiet requests PyYAML
+      - run: pip install --quiet requests PyYAML cryptography
 
       - name: Leggi ed esegui i comandi
         id: bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CHIAVE_DATI: ${{ secrets.CHIAVE_DATI }}
         run: |
-          export DATI_URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/data/aste.json"
+          export DATI_URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/data"
           python bot.py
 
-      - name: Salva le preferenze
+      - name: Salva le impostazioni
         if: steps.bot.outputs.modificato == 'true'
         run: |
           git config user.name "monitor-aste-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add preferenze.json
-          git commit -m "Preferenze aggiornate dal bot Telegram"
+          git add "${{ steps.bot.outputs.file }}"
+          git commit -m "Impostazioni aggiornate dal bot Telegram"
           git pull --rebase --quiet
           git push
 
@@ -56,3 +57,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run monitor.yml --ref "${GITHUB_REF_NAME}" -R "${GITHUB_REPOSITORY}"
+
+      # GitHub spegne i controlli programmati dopo 60 giorni senza attività nel repository:
+      # una volta al mese salvo un file minuscolo per tenerlo sveglio.
+      - name: Mantieni attivo il repository
+        run: |
+          ULTIMO=$(git log -1 --format=%ct)
+          ADESSO=$(date +%s)
+          if [ $(( (ADESSO - ULTIMO) / 86400 )) -ge 30 ]; then
+            date -u +%Y-%m-%dT%H:%MZ > .attivo
+            git config user.name "monitor-aste-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .attivo
+            git commit -m "Mantieni attivo il monitor"
+            git pull --rebase --quiet
+            git push
+          fi
