@@ -111,6 +111,7 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13.5px;display:inline-flex;gap:7px;align-items:center}
 .pill b{font-weight:700;font-variation-settings:"wdth" 110}
 .pill[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.pill.p-occ b{color:var(--cobalt)}
 .pill.p-red b{color:var(--red)} .pill.p-green b{color:var(--green)} .pill.p-tag b{color:var(--amber)}
 .pill[aria-pressed="true"] b{color:inherit}
 .resbar .sp{flex:1}
@@ -149,6 +150,12 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .badge{border-radius:5px;padding:1px 6px;font-size:11.5px;font-weight:600}
 .b-new{background:var(--green-soft);color:var(--green)}
 .b-src{background:var(--sunk);color:var(--ink2);font-weight:500}
+.b-occ{background:var(--cobalt);color:#fff;display:inline-flex;align-items:center;gap:3px}
+.b-occ svg{width:11px;height:11px}
+.b-lista{background:var(--tag);color:var(--tag-ink);display:inline-flex;align-items:center;gap:3px}
+.b-lista svg{width:11px;height:11px}
+.b-st{background:var(--sunk);color:var(--ink)}
+.st-valutare{background:#E3E9F8;color:#2347A8}.st-sopralluogo{background:#F8ECD6;color:#8A5A06}.st-offerta{background:#EADCF5;color:#6B3FA0}.st-vinta{background:#DCF0E5;color:#1F7A50}.st-scartata{background:var(--sunk);color:var(--ink3);text-decoration:line-through}
 .kw{background:var(--tag);color:var(--tag-ink);border-radius:5px;padding:1px 6px;font-size:11.5px;font-weight:600}
 .ttl{margin:0;font-size:15.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .place{font-size:13px;color:var(--ink2);display:flex;gap:5px;align-items:center;min-width:0}
@@ -180,6 +187,7 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .card .star{background:var(--surface);top:8px;right:8px;color:var(--ink3)}
 .card .star[aria-pressed="true"]{color:var(--tag)}
 
+.more[hidden]{display:none}
 .more{display:block;margin:18px auto 0;padding:11px 26px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600}
 .empty{padding:70px 20px;text-align:center;color:var(--ink2)}
 .empty b{display:block;font-size:18px;color:var(--ink);margin-bottom:6px}
@@ -216,6 +224,17 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .sites{display:flex;flex-wrap:wrap;gap:6px}
 .sites a{font-size:13px;padding:5px 10px;border-radius:999px;background:var(--sunk);text-decoration:none;color:var(--ink2)}
 .sites a:hover{color:var(--cobalt)}
+.occbox{background:var(--cobalt);color:#fff}
+.occbox h3{margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:7px}
+.occbox h3 svg{width:17px;height:17px}
+.occbox ul{margin:0;padding-left:18px}
+.occbox li{margin:2px 0}
+.stati{display:flex;flex-wrap:wrap;gap:6px}
+.stati button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:13.5px;font-weight:500}
+.stati button[aria-pressed="true"]{border-color:transparent;font-weight:700}
+.share{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.share[hidden]{display:none}
+.share a,.share button{font-size:13.5px;padding:7px 13px;border-radius:999px;background:var(--sunk);border:0;text-decoration:none;color:var(--ink);font-weight:500}
 .btn.ai-go{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(--line);background:var(--paper);padding:10px 12px;font:inherit;resize:vertical}
 .saved{font-size:12.5px;color:var(--green);height:16px;margin-top:4px}
@@ -289,6 +308,7 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
         <input type="search" id="q" placeholder="rolex, gommone, Pescara…" autocomplete="off"></label>
     </div>
+    <div class="fgroup" id="listagrp" hidden><h3>La tua lista</h3><div id="lista"></div></div>
     <div class="fgroup"><h3>Categoria</h3><div id="cats"></div></div>
     <div class="fgroup"><h3>Prezzo base</h3>
       <div class="row2">
@@ -301,6 +321,7 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
       <label class="field"><span class="sr">Regione</span><select id="regione"><option value="">Tutta Italia</option></select></label>
     </div>
     <div class="fgroup"><h3>Portale</h3><div id="srcs"></div></div>
+    <div class="fgroup"><h3>Le tue aste</h3><div id="stati"></div></div>
     <button class="reset" id="reset">Azzera tutti i filtri</button>
   </aside>
 
@@ -308,7 +329,7 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
     <div id="alerts"></div>
     <div class="resbar">
       <button class="pill filtersbtn" id="openSheet"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtri</button>
-      <span class="quick"><button class="pill p-green" data-q="nuove" aria-pressed="false"><b id="cNew">0</b> nuove 24h</button>
+      <span class="quick"><button class="pill p-tag" data-q="lista" aria-pressed="false"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg><b id="cLista">0</b> nella tua lista</button><button class="pill p-occ" data-q="occasioni" aria-pressed="false"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><b id="cOcc">0</b> occasioni</button><button class="pill p-green" data-q="nuove" aria-pressed="false"><b id="cNew">0</b> nuove 24h</button>
       <button class="pill p-red" data-q="urgenti" aria-pressed="false"><b id="cUrg">0</b> chiudono entro 48h</button>
       <button class="pill p-tag" data-q="parole" aria-pressed="false"><b id="cKw">0</b> con le tue parole</button>
       <button class="pill" data-q="preferiti" aria-pressed="false">★ <b id="cFav">0</b> seguite</button></span>
@@ -316,6 +337,7 @@ textarea{width:100%;min-height:92px;border-radius:var(--r);border:1px solid var(
       <span class="count" id="count"></span>
       <select class="sortsel" id="ordine" aria-label="Ordina">
         <option value="scadenza">Chiudono prima</option>
+        <option value="occasioni">Occasioni prima</option>
         <option value="nuove">Arrivate da poco</option>
         <option value="prezzo">Prezzo più basso</option>
         <option value="prezzo_desc">Prezzo più alto</option>
@@ -341,9 +363,12 @@ const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 };
-const DEF = {q:'', pmin:'', pmax:'', noprice:true, regione:'', cats:[], srcs:[], quick:[], day:'', ordine:'scadenza', vista:'list'};
+const DEF = {q:'', pmin:'', pmax:'', noprice:true, regione:'', cats:[], srcs:[], quick:[], stati:[], lista:[], day:'', ordine:'scadenza', vista:'list'};
 const st = Object.assign({}, DEF, store.get('aste.filtri', {}));
-let favs = store.get('preferiti', {}), notes = store.get('note', {});
+let favs = store.get('preferiti', {}), notes = store.get('note', {}), stati = store.get('stati', {});
+const STATI = [['valutare','Da valutare'],['sopralluogo','Sopralluogo'],['offerta','Offerta fatta'],['vinta','Vinta'],['scartata','Scartata']];
+const STATO_LBL = Object.fromEntries(STATI);
+const BOLT = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
 let DATA = null, ASTE = [], shown = 50, current = null;
 
 const ICON = {
@@ -419,9 +444,21 @@ function buildSide(){
     `<button class="opt" data-cat="${k}" aria-pressed="false"><span class="ico" style="background:${CAT_COL[k]}22;color:${CAT_COL[k]}">${svg(k)}</span>${esc(l)}<span class="cnt">${cc[k].toLocaleString('it-IT')}</span></button>`).join('');
   $('#srcs').innerHTML = Object.entries(sc).sort((a,b) => b[1]-a[1]).map(([k,n]) =>
     `<button class="opt" data-src="${esc(k)}" aria-pressed="false">${esc(k)}<span class="cnt">${n.toLocaleString('it-IT')}</span></button>`).join('');
+  renderStatiSide();
+  const lc = {}; ASTE.forEach(a => (a.lista || []).forEach(n => lc[n] = (lc[n]||0) + 1));
+  if (!Array.isArray(st.lista)) st.lista = [];
+  $('#listagrp').hidden = !Object.keys(lc).length;
+  $('#lista').innerHTML = Object.entries(lc).sort((a,b) => b[1]-a[1]).map(([n,c]) =>
+    `<button class="opt" data-lista="${esc(n)}" aria-pressed="${st.lista.includes(n)}">${esc(n)}<span class="cnt">${c}</span></button>`).join('');
   $('#regione').innerHTML = '<option value="">Tutta Italia</option>' + [...rg].sort().map(r => `<option>${esc(r)}</option>`).join('');
 }
 
+function renderStatiSide(){
+  if (!Array.isArray(st.stati)) st.stati = [];
+  const n = {}; ASTE.forEach(a => { const s = stati[a.id]; if (s) n[s] = (n[s]||0) + 1; });
+  $('#stati').innerHTML = STATI.map(([k,l]) => `<button class="opt" data-stato="${k}" aria-pressed="${st.stati.includes(k)}"><span class="badge st-${k}">${l}</span><span class="cnt">${n[k] || 0}</span></button>`).join('')
+    + '<p style="font-size:12.5px;color:var(--ink3);margin:6px 6px 0">Le scartate restano nascoste finché non le selezioni qui.</p>';
+}
 function syncControls(){
   for (const k of ['q','pmin','pmax','regione','ordine']) $('#'+k).value = st[k] || (k === 'ordine' ? 'scadenza' : '');
   $('#noprice').checked = !!st.noprice;
@@ -444,6 +481,12 @@ function filtered(skipDay){
     if (Q.has('nuove') && !isNew(a)) return false;
     if (Q.has('parole') && !(a.parole && a.parole.length)) return false;
     if (Q.has('preferiti') && !favs[a.id]) return false;
+    if (Q.has('occasioni') && !a.occasione) return false;
+    if (Q.has('lista') && !(a.lista && a.lista.length)) return false;
+    if (st.lista.length && !(a.lista || []).some(n => st.lista.includes(n))) return false;
+    const sa = stati[a.id];
+    if (st.stati.length) { if (!st.stati.includes(sa)) return false; }
+    else if (sa === 'scartata') return false;
     if (Q.has('urgenti')) { const d = parseD(a.scadenza); if (!d || d - now > 48*36e5 || d < now) return false; }
     if (!skipDay && st.day && a._d !== st.day) return false;
     for (const w of words) if (!a._t.includes(w)) return false;
@@ -455,6 +498,7 @@ function sortList(list){
   const s = st.ordine;
   return list.sort((a,b) =>
     s === 'nuove' ? (b.visto_il||'').localeCompare(a.visto_il||'') || (b.pubblicata||'').localeCompare(a.pubblicata||'') :
+    s === 'occasioni' ? ((b.occasione ? b.occasione.punti : 0) - (a.occasione ? a.occasione.punti : 0)) || (a.scadenza || '9999').localeCompare(b.scadenza || '9999') :
     s === 'prezzo' ? (a.prezzo_base ?? 1e12) - (b.prezzo_base ?? 1e12) :
     s === 'prezzo_desc' ? (b.prezzo_base ?? -1) - (a.prezzo_base ?? -1) :
     (a.scadenza || '9999').localeCompare(b.scadenza || '9999'));
@@ -482,7 +526,8 @@ function priceHtml(a){
   return '<span class="na">prezzo nella scheda</span>';
 }
 function metaHtml(a){
-  return `<div class="meta"><span class="cat" style="color:${CAT_COL[a.categoria]}">${svg(a.categoria)}<span style="color:var(--ink2)">${esc(DATA.categorie[a.categoria] || a.categoria)}</span></span>
+  const sa = stati[a.id];
+  return `<div class="meta">${(a.lista || []).map(n => `<span class="badge b-lista">★ ${esc(n)}</span>`).join('')}${a.occasione ? `<span class="badge b-occ" title="${esc(a.occasione.motivi.join(' · '))}">${BOLT}Occasione</span>` : ''}${sa ? `<span class="badge st-${sa}">${STATO_LBL[sa]}</span>` : ''}<span class="cat" style="color:${CAT_COL[a.categoria]}">${svg(a.categoria)}<span style="color:var(--ink2)">${esc(DATA.categorie[a.categoria] || a.categoria)}</span></span>
     ${isNew(a) ? '<span class="badge b-new">nuova</span>' : ''}<span class="badge b-src">${esc(a.fonte)}${gestore(a) ? ` › ${esc(gestore(a).nome)}` : ''}</span>
     ${(a.parole||[]).slice(0,4).map(p => `<span class="kw">${esc(p)}</span>`).join('')}</div>`;
 }
@@ -517,6 +562,8 @@ function renderActive(){
   if (st.pmin) chips.push(['pmin', 'da € ' + Number(st.pmin).toLocaleString('it-IT')]);
   if (st.pmax) chips.push(['pmax', 'fino a € ' + Number(st.pmax).toLocaleString('it-IT')]);
   if (st.day) chips.push(['day', 'chiude ' + whenText(st.day)]);
+  st.stati.forEach(k => chips.push(['stato:'+k, STATO_LBL[k]]));
+  st.lista.forEach(k => chips.push(['lista:'+k, k]));
   $('#active').innerHTML = chips.map(([k,l]) => `<button data-rm="${esc(k)}" aria-label="Togli filtro ${esc(l)}">${esc(l)} ✕</button>`).join('');
 }
 
@@ -528,6 +575,8 @@ function render(){
   const now = Date.now();
   $('#cNew').textContent = ASTE.filter(isNew).length.toLocaleString('it-IT');
   $('#cUrg').textContent = ASTE.filter(a => { const d = parseD(a.scadenza); return d && d > now && d - now <= 48*36e5; }).length.toLocaleString('it-IT');
+  $('#cLista').textContent = ASTE.filter(a => a.lista && a.lista.length).length.toLocaleString('it-IT');
+  $('#cOcc').textContent = ASTE.filter(a => a.occasione && (!a.scadenza || parseD(a.scadenza) > now)).length.toLocaleString('it-IT');
   $('#cKw').textContent = ASTE.filter(a => a.parole && a.parole.length).length.toLocaleString('it-IT');
   $('#cFav').textContent = Object.keys(favs).filter(id => ASTE.some(a => a.id === id)).length;
   $('#count').innerHTML = `<b>${list.length.toLocaleString('it-IT')}</b> aste`;
@@ -576,6 +625,7 @@ function openPanel(id){
     <div class="pbody">
       <div class="pcount ${c.cls}"><span class="big">${c.big}</span><span class="lbl"><b>${c.unit}</b>${whenText(a.scadenza)}</span></div>
       ${a.immagine ? `<img class="pimg" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : ''}
+      ${a.occasione ? `<div class="psec occbox"><h3>${BOLT}Perché è un'occasione</h3><ul>${a.occasione.motivi.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>` : ''}
       <div class="psec">${metaHtml(a)}<h2 style="margin-top:8px">${esc(a.titolo)}</h2>${a.descrizione && a.descrizione !== a.titolo ? `<p>${esc(a.descrizione)}</p>` : ''}</div>
       <div class="psec"><dl class="facts">${facts.map(([k,v,h]) => `<div class="${h?'hero':''}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></div>
       <div class="psec ai">
@@ -596,6 +646,17 @@ function openPanel(id){
         ${place(a) ? `<a class="btn" href="https://www.google.com/maps/search/${encodeURIComponent(place(a))}" target="_blank" rel="noopener">${PIN}Mappa</a>` : ''}
       </div></div>
       ${portaliHtml(a)}
+      <div class="psec"><h3 class="aih">A che punto sei</h3>
+        <div class="stati" id="pstati">${STATI.map(([k,l]) => `<button data-set="${k}" class="${stati[a.id]===k ? 'st-'+k : ''}" aria-pressed="${stati[a.id]===k}">${l}</button>`).join('')}</div></div>
+      <div class="psec"><h3 class="aih">Segnala a qualcuno</h3>
+        <p class="aip">Manda l'asta con prezzo, chiusura, luogo e link già pronti.</p>
+        <div class="share" id="pshare">
+          <a href="https://wa.me/?text=${encodeURIComponent(shareText(a))}" target="_blank" rel="noopener">WhatsApp</a>
+          <a href="https://t.me/share/url?url=${encodeURIComponent(shareLink(a))}&text=${encodeURIComponent(shareText(a, true))}" target="_blank" rel="noopener">Telegram</a>
+          <a href="mailto:?subject=${encodeURIComponent('Asta: ' + a.titolo.slice(0,80))}&body=${encodeURIComponent(shareText(a))}">Email</a>
+          <button data-share="copy">Copia testo</button>
+          ${navigator.share ? '<button data-share="native">Altro…</button>' : ''}
+        </div></div>
       <div class="psec"><label for="pnote" style="font-weight:600;display:block;margin-bottom:6px">Le tue note</label>
         <textarea id="pnote" placeholder="Custode, sopralluogo, offerta massima, cauzione…">${esc(notes[a.id] || '')}</textarea><div class="saved" id="psaved"></div></div>
     </div>`;
@@ -611,6 +672,26 @@ function portaliHtml(a){
   return `<div class="psec"><h3 class="aih">Dove si svolge</h3>
     <p class="aip">${g ? `Le offerte si fanno su <b>${esc(g.nome)}</b>.` : (a.portali.length ? 'Vendita non telematica o presso il venditore: le modalità sono nell\'avviso.' : 'Nessun portale indicato sul PVP: le modalità sono nell\'avviso.')}${altri.length ? ' Pubblicata anche su:' : ''}</p>
     ${altri.length ? `<div class="sites">${altri.map(p => `<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.nome)}</a>`).join('')}</div>` : ''}</div>`;
+}
+const shareLink = a => (gestore(a) || {}).url || a.url;
+function shareText(a, noLink){
+  const r = [a.titolo];
+  if (a.prezzo_base != null) r.push('Prezzo base ' + euro(a.prezzo_base) + (a.offerta_minima && a.offerta_minima !== a.prezzo_base ? ' (offerta minima ' + euro(a.offerta_minima) + ')' : ''));
+  else if (a.ribasso_pct) r.push('Ribasso ' + a.ribasso_pct + '%');
+  r.push('Chiude ' + whenText(a.scadenza));
+  if (place(a)) r.push(place(a));
+  if (a.occasione) r.push('Occasione: ' + a.occasione.motivi.join('; '));
+  if (a.lista && a.lista.length) r.push('Nella lista: ' + a.lista.join(', '));
+  if (notes[a.id]) r.push('Nota: ' + notes[a.id]);
+  if (!noLink) r.push(shareLink(a));
+  return r.join('\n');
+}
+function setStato(id, k){
+  if (stati[id] === k) delete stati[id]; else stati[id] = k;
+  store.set('stati', stati);
+  document.querySelectorAll('#pstati [data-set]').forEach(b => { const on = stati[id] === b.dataset.set; b.setAttribute('aria-pressed', on); b.className = on ? 'st-' + b.dataset.set : ''; });
+  renderStatiSide();
+  toast(stati[id] ? 'Segnata come: ' + STATO_LBL[stati[id]] : 'Stato tolto');
 }
 function aiPrompt(a){
   const r = [];
@@ -674,6 +755,9 @@ $('#regione').addEventListener('change', e => { st.regione = e.target.value; sav
 $('#ordine').addEventListener('change', e => { st.ordine = e.target.value; save(); });
 const tog = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
 $('#cats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; st.cats = tog(st.cats, b.dataset.cat); b.setAttribute('aria-pressed', st.cats.includes(b.dataset.cat)); save(); });
+function syncLista(){ document.querySelectorAll('[data-lista]').forEach(b => b.setAttribute('aria-pressed', st.lista.includes(b.dataset.lista))); }
+$('#lista').addEventListener('click', e => { const b = e.target.closest('[data-lista]'); if (!b) return; st.lista = tog(st.lista, b.dataset.lista); syncLista(); save(); });
+$('#stati').addEventListener('click', e => { const b = e.target.closest('[data-stato]'); if (!b) return; st.stati = tog(st.stati, b.dataset.stato); b.setAttribute('aria-pressed', st.stati.includes(b.dataset.stato)); save(); });
 $('#srcs').addEventListener('click', e => { const b = e.target.closest('[data-src]'); if (!b) return; st.srcs = tog(st.srcs, b.dataset.src); b.setAttribute('aria-pressed', st.srcs.includes(b.dataset.src)); save(); });
 document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { st.quick = tog(st.quick, b.dataset.q); b.setAttribute('aria-pressed', st.quick.includes(b.dataset.q)); save(); }));
 document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { st.vista = b.dataset.v; syncControls(); save(); }));
@@ -682,6 +766,8 @@ $('#active').addEventListener('click', e => {
   const b = e.target.closest('[data-rm]'); if (!b) return; const k = b.dataset.rm;
   if (k.startsWith('cat:')) st.cats = st.cats.filter(x => x !== k.slice(4));
   else if (k.startsWith('src:')) st.srcs = st.srcs.filter(x => x !== k.slice(4));
+  else if (k.startsWith('stato:')) st.stati = st.stati.filter(x => x !== k.slice(6));
+  else if (k.startsWith('lista:')) { st.lista = st.lista.filter(x => x !== k.slice(6)); syncLista(); }
   else st[k] = '';
   syncControls(); save();
 });
@@ -698,6 +784,14 @@ $('#panel').addEventListener('click', e => {
   if (e.target.closest('#pclose')) return closePanel();
   if (e.target.closest('#pics')) return ics(current);
   if (e.target.closest('#pcopy')) return copyPrompt();
+  const sb = e.target.closest('[data-set]'); if (sb) return setStato(current.id, sb.dataset.set);
+  const sh = e.target.closest('[data-share]');
+  if (sh) {
+    if (sh.dataset.share === 'native') { navigator.share({title: current.titolo, text: shareText(current, true), url: shareLink(current)}).catch(() => {}); return; }
+    const t = shareText(current);
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Testo copiato: incollalo dove vuoi'), () => toast('Copia non riuscita'));
+    return;
+  }
   const f = e.target.closest('#pfav'); if (f) { const on = toggleFav(current.id); f.setAttribute('aria-pressed', on); f.lastChild.textContent = on ? 'Seguita' : 'Segui'; }
 });
 let nt; $('#panel').addEventListener('input', e => {

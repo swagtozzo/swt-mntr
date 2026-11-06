@@ -86,6 +86,82 @@ parole_escluse:
   - quota di 1/
 
 # ------------------------------------------------------------
+# LA TUA LISTA — oggetti precisi che cerchi
+# Ogni voce:
+#   nome:       come compare in dashboard e su Telegram
+#   parole:     basta che ce ne sia UNA nel titolo/descrizione
+#   anche:      (facoltativo) deve esserci ANCHE una di queste
+#   escludi:    (facoltativo) se c'è una di queste, il lotto viene ignorato
+#   prezzo_max: (facoltativo) prezzo base massimo in €
+#   regioni:    (facoltativo) solo in queste regioni (vuoto = tutta Italia)
+#   categorie:  (facoltativo) solo in queste categorie
+# Ogni lotto nuovo che corrisponde ti arriva su Telegram, prima di tutti gli altri.
+# ------------------------------------------------------------
+lista:
+  - nome: BMW E36 e ricambi
+    parole: [e36, bmw 316, bmw 318, bmw 320, bmw 323, bmw 325, bmw 328, m50, m52]
+    prezzo_max: 8000
+
+  - nome: Alfa Romeo MiTo e ricambi
+    parole: [mito, alfa mito]
+    anche: [alfa, romeo]
+    prezzo_max: 8000
+
+  - nome: Seiko e orologi da modding
+    parole: [seiko, skx, nh35, nh36, nh34, nh38, orient, citizen, casio g-shock]
+
+  - nome: Orologi di lusso
+    parole: [rolex, omega, tudor, cartier, panerai, iwc, breitling, longines, tag heuer, jaeger, patek, audemars, zenith]
+
+  - nome: Pesca a spinning
+    parole: [canna da pesca, canne da pesca, mulinello, mulinelli, shimano, daiwa, spinning, attrezzatura da pesca, artificiali]
+
+  - nome: Barca o gommone piccolo
+    parole: [gommone, natante, barca, barchino, fuoribordo, motore marino, kayak, canoa, pedalò]
+    escludi: [nave, peschereccio, yacht, porto turistico]
+    prezzo_max: 15000
+
+  - nome: Surf, SUP e kite
+    parole: [tavola da surf, tavole da surf, surf, surfboard, tavola sup, sup board, sup gonfiabile, stand up paddle, paddle board, kitesurf, windsurf, muta stagna, muta neoprene]
+
+  - nome: Abbigliamento moto
+    parole: [casco moto, caschi, dainese, alpinestars, spidi, rev'it, giubbotto moto, giacca moto, tuta moto, stivali moto, shoei, arai, agv]
+
+  - nome: Attrezzatura palestra
+    parole: [bilanciere, manubri, panca piana, rack, power rack, dischi ghisa, kettlebell, multipower, lat machine, attrezzi palestra]
+    prezzo_max: 3000
+
+  - nome: Arredo salotto di design
+    parole: [divano, credenza, madia, tavolino, poltrona, lampada, cassina, b&b italia, poltrona frau, minotti, kartell, flos, artemide, vitra, molteni]
+    regioni: [Abruzzo, Marche, Molise]
+    prezzo_max: 3000
+
+  - nome: Borse, sneakers e lusso
+    parole: [louis vuitton, hermes, hermès, chanel, gucci, prada, dior, fendi, bottega veneta, moncler, jordan, yeezy, off-white]
+
+# ------------------------------------------------------------
+# OCCASIONI
+# Un lotto diventa "Occasione" quando ha almeno `punti_min` di questi segnali:
+#   tentativo di vendita alto, ribasso forte, prezzo sceso rispetto a quando
+#   il monitor l'ha visto la prima volta, prezzo basso per la categoria,
+#   vicino a casa, parole chiave trovate.
+# ------------------------------------------------------------
+occasioni:
+  punti_min: 2
+  tentativi_min: 3          # dal 3° tentativo (le prime due aste deserte)
+  ribasso_min: 40           # ribasso dichiarato in %
+  calo_min_pct: 20          # prezzo sceso di almeno il 20% rispetto allo storico
+  regioni_casa: [Abruzzo, Marche, Molise]
+  prezzo_basso:             # prezzo base massimo per considerarlo "basso"
+    auto_moto: 3000
+    nautica: 5000
+    orologi_gioielli: 1500
+    moda_lusso: 800
+    sport_outdoor: 500
+    macchinari: 2000
+    immobili: 40000
+
+# ------------------------------------------------------------
 # AVVISI TELEGRAM
 # Ti arriva un messaggio per ogni NUOVO lotto che rispetta almeno una regola.
 # Ogni regola: tutti i campi indicati devono essere veri.
@@ -93,8 +169,12 @@ parole_escluse:
 #   parole: almeno una parola presente nel testo
 #   regioni: lista di regioni (vuoto/assente = ovunque)
 #   prezzo_max: prezzo base massimo in €
+#   solo_occasioni: true = solo i lotti segnati come Occasione
 # ------------------------------------------------------------
 avvisi:
+  - nome: "Occasione"
+    solo_occasioni: true
+
   - nome: "Orologi e lusso, tutta Italia"
     categorie: [orologi_gioielli, moda_lusso]
 

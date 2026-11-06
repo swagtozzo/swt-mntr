@@ -455,6 +455,10 @@ def astebusiness_normalizza(x: dict) -> dict:
             pass
     a["immagine"] = ASTEBUS + x["imagePath"] if x.get("imagePath") else None
     a["pvp_id"] = x.get("idInserzioneEspVendita")
+    try:
+        a["esperimento"] = int(x.get("experimentNumber") or 0) or None
+    except (TypeError, ValueError):
+        pass
     cat = (x.get("category") or "").lower()
     a["categoria"] = ("immobili" if "immobili" in cat else "nautica" if "nautica" in cat
                       else "orologi_gioielli" if "oreficeria" in cat
@@ -464,9 +468,50 @@ def astebusiness_normalizza(x: dict) -> dict:
 
 # ---------------------------------------------------------------- filtri e avvisi
 
+class Lista:
+    """Lista desideri: oggetti precisi da cercare, ognuno con parole, esclusioni, prezzo e zona."""
+    def __init__(self, voci):
+        self.voci = []
+        for v in voci or []:
+            if not v or not v.get("parole"):
+                continue
+            self.voci.append({
+                "nome": v.get("nome") or v["parole"][0],
+                "parole": kw_regex(v["parole"]),
+                "anche": kw_regex(v.get("anche")),          # se presente, serve anche una di queste
+                "escludi": kw_regex(v.get("escludi")),
+                "categorie": set(v.get("categorie") or []),
+                "immobili": bool(v.get("immobili")),
+                "prezzo_max": v.get("prezzo_max"),
+                "regioni": {r.lower() for r in v.get("regioni") or []},
+            })
+
+    def trova(self, a) -> list[str]:
+        testo = f"{a.get('titolo', '')} {a.get('descrizione', '')}"
+        out = []
+        for v in self.voci:
+            if not v["parole"].search(testo):
+                continue
+            if v["anche"] and not v["anche"].search(testo):
+                continue
+            if v["escludi"] and v["escludi"].search(testo):
+                continue
+            if v["categorie"] and a.get("categoria") not in v["categorie"]:
+                continue
+            if a.get("categoria") == "immobili" and not v["immobili"] and "immobili" not in v["categorie"]:
+                continue
+            if v["prezzo_max"] and a.get("prezzo_base") and a["prezzo_base"] > v["prezzo_max"]:
+                continue
+            if v["regioni"] and a.get("regione") and a["regione"].lower() not in v["regioni"]:
+                continue
+            out.append(v["nome"])
+        return out
+
+
 class Filtri:
     def __init__(self, cfg):
         self.cfg = cfg
+        self.lista = Lista(cfg.get("lista"))
         self.cat_attive = {k for k, v in (cfg.get("categorie") or {}).items() if v}
         self.kw = kw_regex(cfg.get("parole_chiave"))
         self.escluse = [p.lower() for p in cfg.get("parole_escluse") or []]
@@ -485,6 +530,9 @@ class Filtri:
         if any(p in testo for p in self.escluse):
             return False
         a["parole"] = self.parole_trovate(a)
+        a["lista"] = self.lista.trova(a) or None
+        if a["lista"]:
+            return True
         if a["categoria"] == "immobili":
             if "immobili" not in self.cat_attive and not a["parole"]:
                 return False
@@ -496,6 +544,59 @@ class Filtri:
         return a["categoria"] in self.cat_attive or bool(a["parole"])
 
 
+# ---------------------------------------------------------------- occasioni
+
+ORDINALI = {"secondo": 2, "seconda": 2, "terzo": 3, "terza": 3, "quarto": 4, "quarta": 4, "quinto": 5, "quinta": 5,
+            "sesto": 6, "sesta": 6, "settimo": 7, "settima": 7, "ottavo": 8, "ottava": 8, "nono": 9, "nona": 9,
+            "decimo": 10, "decima": 10}
+RX_TENT = re.compile(r"\b(?:vendita|esperimento|tentativo)\s*(?:n\.?|nr\.?|numero|n°)?\s*(\d{1,2})\b", re.I)
+RX_TENT_ORD = re.compile(r"\b(%s)\s+(?:esperimento|tentativo|vendita|asta|incanto)\b" % "|".join(ORDINALI), re.I)
+
+
+def tentativo(a) -> int | None:
+    if a.get("esperimento"):
+        return a["esperimento"]
+    testo = f"{a.get('titolo', '')} {a.get('descrizione', '')} {a.get('tribunale', '')}"
+    n = [int(m.group(1)) for m in RX_TENT.finditer(testo) if 1 < int(m.group(1)) < 30]
+    n += [ORDINALI[m.group(1).lower()] for m in RX_TENT_ORD.finditer(testo)]
+    return max(n) if n else None
+
+
+def chiave_storico(a) -> str | None:
+    if a["fonte"] != "PVP" or not a.get("procedura"):
+        return None
+    return "|".join(str(x or "").lower() for x in (a.get("tribunale"), a.get("procedura"), a.get("lotto"), a.get("citta")))
+
+
+def valuta_occasione(a, storico: dict, occ_cfg: dict, oggi_iso: str):
+    """Assegna a["occasione"] = {"punti", "motivi"} e aggiorna lo storico prezzi."""
+    motivi = []
+    t = tentativo(a)
+    if t and t >= int(occ_cfg.get("tentativi_min", 3)):
+        motivi.append(f"{t}° tentativo di vendita: le precedenti sono andate deserte")
+    if a.get("ribasso_pct") and a["ribasso_pct"] >= int(occ_cfg.get("ribasso_min", 40)):
+        motivi.append(f"ribasso del {a['ribasso_pct']}% sul prezzo iniziale")
+    k = chiave_storico(a)
+    if k and a.get("prezzo_base"):
+        h = storico.get(k)
+        if h and h[0] and a["prezzo_base"] < h[0] * (1 - float(occ_cfg.get("calo_min_pct", 20)) / 100):
+            calo = round(100 * (1 - a["prezzo_base"] / h[0]))
+            motivi.append(f"prezzo sceso del {calo}% (era {euro(h[0])} il {h[1][8:10]}/{h[1][5:7]}/{h[1][:4]})")
+        if not h or a["prezzo_base"] > h[0]:
+            storico[k] = [a["prezzo_base"], oggi_iso] if not h else [max(h[0], a["prezzo_base"]), h[1]]
+    soglie = occ_cfg.get("prezzo_basso") or {}
+    sog = soglie.get(a["categoria"])
+    if sog and a.get("prezzo_base") and a["prezzo_base"] <= sog:
+        motivi.append(f"prezzo base sotto {euro(sog)} per {CATEGORIE_LABEL.get(a['categoria'], a['categoria']).lower()}")
+    casa = {r.lower() for r in occ_cfg.get("regioni_casa") or []}
+    if casa and a.get("regione", "").lower() in casa:
+        motivi.append(f"vicino a casa ({a['regione']})")
+    if a.get("parole"):
+        motivi.append("contiene: " + ", ".join(a["parole"][:4]))
+    punti = len(motivi)
+    a["occasione"] = {"punti": punti, "motivi": motivi} if punti >= int(occ_cfg.get("punti_min", 2)) else None
+
+
 def regole_avviso(cfg):
     regole = []
     for r in cfg.get("avvisi") or []:
@@ -505,11 +606,14 @@ def regole_avviso(cfg):
             "parole": kw_regex(r.get("parole")),
             "regioni": {x.lower() for x in r.get("regioni") or []},
             "prezzo_max": r.get("prezzo_max"),
+            "solo_occasioni": bool(r.get("solo_occasioni")),
         })
     return regole
 
 
 def regola_che_scatta(a, regole):
+    if a.get("lista"):
+        return "Nella tua lista: " + ", ".join(a["lista"])
     testo = f"{a['titolo']} {a['descrizione']}"
     for r in regole:
         if r["categorie"] and a["categoria"] not in r["categorie"]:
@@ -517,6 +621,8 @@ def regola_che_scatta(a, regole):
         if r["parole"] and not r["parole"].search(testo):
             continue
         if r["regioni"] and a["regione"].lower() not in r["regioni"]:
+            continue
+        if r.get("solo_occasioni") and not a.get("occasione"):
             continue
         if r["prezzo_max"] and (a["prezzo_base"] or 0) > r["prezzo_max"]:
             continue
@@ -555,6 +661,7 @@ def messaggio(a, regola):
         f"📍 {e(luogo)}" if luogo else None,
         f"⏰ {a['scadenza'].replace('T', ' ore ') if a['scadenza'] else '—'}",
         f"🏷 {e(CATEGORIE_LABEL.get(a['categoria'], a['categoria']))} · {a['fonte']}",
+        ("⚡ <b>Occasione</b>: " + e("; ".join(a["occasione"]["motivi"]))) if a.get("occasione") else None,
         f"<a href=\"{e(a['url'])}\">Apri la scheda</a>",
     ]
     return "\n".join(r for r in righe if r)
@@ -705,6 +812,10 @@ def main():
     for a in esistenti.values():
         a.pop("_nuova", None)
 
+    # --- storico prezzi (per riconoscere i lotti tornati all'asta a prezzo più basso)
+    storico = stato.get("storico_prezzi") or {}
+    occ_cfg = cfg.get("occasioni") or {}
+
     # --- rimuovi scadute e aste non più in elenco
     soglia = (oggi_d - dt.timedelta(days=1)).isoformat()
     tenute = []
@@ -716,13 +827,15 @@ def main():
         if a.get("pvp_id") and f"pvp-{a['pvp_id']}" in pvp_ids:
             continue
         a["parole"] = filtri.parole_trovate(a)
+        a["lista"] = filtri.lista.trova(a) or None
+        valuta_occasione(a, storico, occ_cfg, oggi_d.isoformat())
         tenute.append(a)
     tenute.sort(key=lambda a: (a.get("scadenza") or "9999"))
 
     # --- avvisi Telegram (non al primo avvio: sarebbero migliaia)
     inviati = 0
     if not primo_avvio:
-        da_avvisare = [(a, regola_che_scatta(a, regole)) for a in nuovi]
+        da_avvisare = [(a, regola_che_scatta(a, regole)) for a in sorted(nuovi, key=lambda a: 0 if a.get("lista") else 1)]
         da_avvisare = [(a, r) for a, r in da_avvisare if r]
         massimo = int(cfg.get("max_avvisi_per_giro", 25))
         for a, r in da_avvisare[:massimo]:
@@ -743,7 +856,9 @@ def main():
         "fonti": esito_fonti,
         "categorie": CATEGORIE_LABEL,
         "nuovi_ultimo_giro": len(nuovi),
-        "stato": {**stato, "fonti_inizializzate": sorted(inizializzate | {k for k, v in esito_fonti.items() if v.get("ok")})},
+        "stato": {**stato, "storico_prezzi": {k: v for k, v in storico.items()
+                                              if v[1] >= (oggi_d - dt.timedelta(days=730)).isoformat()},
+                  "fonti_inizializzate": sorted(inizializzate | {k for k, v in esito_fonti.items() if v.get("ok")})},
         "aste": tenute,
     }
     DATA_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
