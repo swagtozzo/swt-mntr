@@ -1,0 +1,58 @@
+name: Comandi Telegram
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"     # legge i comandi ogni 5 minuti
+  workflow_dispatch: {}
+
+permissions:
+  contents: write     # per salvare preferenze.json
+  actions: write      # per rilanciare il monitor dopo una modifica
+
+concurrency:
+  group: bot-telegram
+  cancel-in-progress: false
+
+jobs:
+  comandi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet requests PyYAML
+
+      - name: Leggi ed esegui i comandi
+        id: bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          export DATI_URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/data/aste.json"
+          python bot.py
+
+      - name: Salva le preferenze
+        if: steps.bot.outputs.modificato == 'true'
+        run: |
+          git config user.name "monitor-aste-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add preferenze.json
+          git commit -m "Preferenze aggiornate dal bot Telegram"
+          git pull --rebase --quiet
+          git push
+
+      - name: Segna i messaggi come letti
+        if: steps.bot.outputs.conferma != ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: curl -s -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${{ steps.bot.outputs.conferma }}&timeout=0"
+
+      - name: Rilancia il monitor
+        if: steps.bot.outputs.aggiorna == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run monitor.yml --ref "${GITHUB_REF_NAME}" -R "${GITHUB_REPOSITORY}"

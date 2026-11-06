@@ -741,6 +741,12 @@ def carica_json(path, default):
 
 def main():
     cfg = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8")) or {}
+    pref_file = ROOT / "preferenze.json"   # modifiche fatte dal bot Telegram: vincono su config.yaml
+    if pref_file.exists():
+        try:
+            cfg.update(json.loads(pref_file.read_text(encoding="utf-8")))
+        except ValueError:
+            log("preferenze.json non leggibile: uso solo config.yaml")
     filtri = Filtri(cfg)
     regole = regole_avviso(cfg)
     dati = carica_json(DATA_FILE, {"aste": []})
@@ -898,7 +904,9 @@ def main():
 
     # --- avvisi Telegram (non al primo avvio: sarebbero migliaia)
     inviati = 0
-    if not primo_avvio:
+    if cfg.get("avvisi_in_pausa"):
+        log("Avvisi in pausa (comando /pausa)")
+    elif not primo_avvio:
         da_avvisare = [(a, regola_che_scatta(a, regole)) for a in sorted(nuovi, key=lambda a: 0 if a.get("lista") else 1)]
         da_avvisare = [(a, r) for a, r in da_avvisare if r]
         massimo = int(cfg.get("max_avvisi_per_giro", 25))
