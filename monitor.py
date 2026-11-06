@@ -144,6 +144,65 @@ def pvp_portali(s, pvp_id: str) -> list:
     return out
 
 
+# ---------------------------------------------------------------- foto di anteprima dai portali
+
+FOTO_HOST = ("fallcoaste.it", "astegiudiziarie.it")   # portali che ammettono la lettura e hanno og:image
+UA_FOTO = "MonitorAste/1.0 (uso personale; anteprime)"
+_robots: dict = {}
+
+
+def robots_ok(url: str) -> bool:
+    from urllib import robotparser
+    from urllib.parse import urlsplit
+    u = urlsplit(url)
+    base = f"{u.scheme}://{u.netloc}"
+    if base not in _robots:
+        rp = robotparser.RobotFileParser()
+        try:
+            r = requests.get(base + "/robots.txt", timeout=15, headers={"User-Agent": UA_FOTO})
+            rp.parse(r.text.splitlines() if r.status_code == 200 else [])
+        except requests.RequestException:
+            rp.parse([])
+        _robots[base] = rp
+    return _robots[base].can_fetch(UA_FOTO, url)
+
+
+def foto_portale(a) -> str | None:
+    cand = [p["url"] for p in sorted(a.get("portali") or [], key=lambda p: 0 if p["tipo"] == "V" else 1)
+            if any(p["nome"].endswith(h) for h in FOTO_HOST) and "/" in p["url"].split("://", 1)[-1].strip("/")]
+    for url in cand[:2]:
+        if not robots_ok(url):
+            continue
+        try:
+            r = requests.get(url, timeout=25, headers={"User-Agent": UA_FOTO, "Accept-Language": "it-IT"})
+        except requests.RequestException:
+            continue
+        if r.status_code != 200:
+            continue
+        m = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', r.text) or \
+            re.search(r'<meta[^>]+content="([^"]+)"[^>]+property="og:image"', r.text)
+        if m and not re.search(r"logo|default|placeholder", m.group(1), re.I):
+            return html.unescape(m.group(1))
+    return None
+
+
+def cerca_foto(aste: list, massimo: int = 600):
+    from concurrent.futures import ThreadPoolExecutor
+    oggi_iso = oggi().isoformat()
+    da_fare = [a for a in aste if a["fonte"] == "PVP" and a.get("portali") and not a.get("immagine")
+               and not a.get("foto_cercata") and (a.get("scadenza") or "9999")[:10] >= oggi_iso]
+    da_fare.sort(key=lambda a: (0 if (a.get("lista") or a.get("occasione") or a.get("parole")) else 1, a.get("scadenza") or "9999"))
+    da_fare = da_fare[:massimo]
+    trovate = 0
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for a, img in zip(da_fare, ex.map(foto_portale, da_fare)):
+            a["foto_cercata"] = True
+            if img:
+                a["immagine"] = img
+                trovate += 1
+    log(f"  Foto: cercate {len(da_fare)}, trovate {trovate}")
+
+
 def pvp_arricchisci(aste: list, max_richieste: int = 1200):
     """Aggiunge i portali alle aste PVP che non li hanno ancora: prima le nuove, poi quelle che chiudono prima."""
     oggi_iso = oggi().isoformat()
@@ -794,8 +853,9 @@ def main():
         prec = esistenti.get(a["id"])
         if prec:
             a["visto_il"] = prec.get("visto_il", adesso)
-            if "portali" in prec and "portali" not in a:
-                a["portali"] = prec["portali"]
+            for k in ("portali", "immagine", "foto_cercata"):
+                if prec.get(k) and not a.get(k):
+                    a[k] = prec[k]
         else:
             a["visto_il"] = adesso
             a["_nuova"] = True
@@ -809,6 +869,10 @@ def main():
             pvp_arricchisci(list(esistenti.values()), int(cfg.get("pvp_portali_per_giro", 1200)))
         except Exception:  # noqa: BLE001
             traceback.print_exc()
+    try:
+        cerca_foto(list(esistenti.values()), int(cfg.get("foto_per_giro", 600)))
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
     for a in esistenti.values():
         a.pop("_nuova", None)
 

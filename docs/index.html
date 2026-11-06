@@ -178,7 +178,7 @@ aside{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;paddi
 .card:hover{border-color:var(--line)}
 .card.fav{border-color:var(--tag)}
 .card .pic{aspect-ratio:16/10;background:var(--sunk);display:grid;place-items:center;position:relative;overflow:hidden}
-.card .pic img{width:100%;height:100%;object-fit:cover}
+.card .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--sunk)}
 .card .pic>svg{width:44px;height:44px;opacity:.55}
 .card .cd{position:absolute;left:8px;bottom:8px;border-radius:7px;padding:3px 8px;font-size:13px;font-weight:700;font-variation-settings:"wdth" 110}
 .card .body{gap:5px}
@@ -545,7 +545,7 @@ function ticket(a){
 function card(a){
   const c = countdown(a.scadenza), fav = !!favs[a.id], pl = place(a) || a.tribunale || '';
   return `<article class="card${fav?' fav':''}" data-id="${esc(a.id)}" tabindex="0">
-    <div class="pic" style="color:${CAT_COL[a.categoria]}">${a.immagine ? `<img loading="lazy" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : svg(a.categoria)}
+    <div class="pic${a.immagine ? ' has' : ''}" style="color:${CAT_COL[a.categoria]}">${svg(a.categoria)}${a.immagine ? `<img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(a.immagine)}" alt="" onerror="this.parentNode.classList.remove('has');this.remove()">` : ''}
       <span class="cd ${c.cls}">${c.big} ${c.unit}</span></div>
     <div class="body">${metaHtml(a)}<h3 class="ttl">${esc(a.titolo)}</h3>${pl ? `<div class="place">${PIN}<span>${esc(pl)}</span></div>` : ''}</div>
     <div class="foot"><div class="price" style="padding:0;align-items:flex-start;text-align:left;min-width:0">${priceHtml(a)}</div><span class="place" style="font-size:12px">${whenText(a.scadenza)}</span></div>
@@ -624,7 +624,7 @@ function openPanel(id){
       <button class="iconbtn" id="pclose" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="pbody">
       <div class="pcount ${c.cls}"><span class="big">${c.big}</span><span class="lbl"><b>${c.unit}</b>${whenText(a.scadenza)}</span></div>
-      ${a.immagine ? `<img class="pimg" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : ''}
+      ${a.immagine ? `<img class="pimg" referrerpolicy="no-referrer" src="${esc(a.immagine)}" alt="" onerror="this.remove()">` : ''}
       ${a.occasione ? `<div class="psec occbox"><h3>${BOLT}Perché è un'occasione</h3><ul>${a.occasione.motivi.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>` : ''}
       <div class="psec">${metaHtml(a)}<h2 style="margin-top:8px">${esc(a.titolo)}</h2>${a.descrizione && a.descrizione !== a.titolo ? `<p>${esc(a.descrizione)}</p>` : ''}</div>
       <div class="psec"><dl class="facts">${facts.map(([k,v,h]) => `<div class="${h?'hero':''}"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl></div>
