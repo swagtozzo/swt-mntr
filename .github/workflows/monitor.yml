@@ -1,0 +1,54 @@
+name: Monitor aste
+
+on:
+  schedule:
+    - cron: "17 5-21 * * *"   # ogni ora dalle 6 alle 22 circa (ora italiana)
+  workflow_dispatch: {}       # pulsante "Run workflow" per lanciarlo a mano
+  push:
+    branches: [main]
+    paths: ["config.yaml", "docs/index.html", "monitor.py"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: monitor-aste
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Recupera i dati del giro precedente
+        run: |
+          mkdir -p docs/data
+          URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/data/aste.json"
+          curl -fsSL "$URL" -o docs/data/aste.json || echo "Nessun dato precedente: primo avvio"
+
+      - name: Controlla i portali
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python monitor.py
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4
