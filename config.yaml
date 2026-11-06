@@ -16,6 +16,7 @@ fonti:
 
 # Giorni di annunci da recuperare al primo avvio (poi lavora solo sui nuovi)
 backfill_giorni: 30
+recupero_giorni: 240     # una volta sola: recupera dal PVP le aste pubblicate fino a 240 giorni fa e ancora aperte
 
 # Quante aste PVP completare per giro con il portale dell'offerta e la foto
 pvp_portali_per_giro: 1200

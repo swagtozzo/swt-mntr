@@ -932,14 +932,27 @@ def main():
         regioni = pvp_mappa_regioni(s)
         n = 0
         cat_mobili = None if (filtri.kw or filtri.lista.voci or "sport_outdoor" in filtri.cat_attive) else list(PVP_CAT)
+        # Recupero profondo (una volta sola): aste pubblicate molti mesi fa ma ancora aperte.
+        # Al primo avvio si guardavano solo gli ultimi `backfill_giorni`: così se ne perdevano.
+        recupero = not stato.get("pvp_recupero_fatto")
+        dal_pvp = min(dal, oggi_d - dt.timedelta(days=int(cfg.get("recupero_giorni", 240)))) if recupero else dal
         for tipo in ["MOBILI", "IMMOBILI"]:
             if tipo == "IMMOBILI" and "immobili" not in filtri.cat_attive:
                 continue
             sottocat = cat_mobili if tipo == "MOBILI" and cat_mobili else [None]
             for c in sottocat:
-                for x in pvp_scarica(s, tipo, dal, c):
-                    raccolti.append(pvp_normalizza(x, regioni))
+                for x in pvp_scarica(s, tipo, dal_pvp, c):
+                    a = pvp_normalizza(x, regioni)
+                    pub = x.get("dataPubblicazione")
+                    if recupero and pub and dt.date.fromisoformat(pub[:10]) < dal:
+                        if (a.get("scadenza") or "9999")[:10] < oggi_d.isoformat():
+                            continue            # già chiusa: nel recupero interessano solo le aste ancora aperte
+                        a["_recupero"] = True   # niente avviso "nuovo" (la tua lista arriva col recupero avvisi)
+                    raccolti.append(a)
                     n += 1
+        if recupero:
+            stato["pvp_recupero_fatto"] = True
+            log(f"  PVP: recupero profondo dal {dal_pvp}")
         esito_fonti["PVP"] = {"ok": True, "letti": n}
     except _Spenta:
         pass
@@ -1010,6 +1023,7 @@ def main():
     nuovi = []
     adesso = adesso_dt.strftime("%Y-%m-%dT%H:%M")
     for a in raccolti:
+        da_recupero = a.pop("_recupero", False)
         if not filtri.tieni(a):
             continue
         prec = esistenti.get(a["id"])
@@ -1021,7 +1035,7 @@ def main():
         else:
             a["visto_il"] = adesso
             a["_nuova"] = True
-            if a["fonte"] in inizializzate:
+            if a["fonte"] in inizializzate and not da_recupero:
                 nuovi.append(a)
         esistenti[a["id"]] = a
 
