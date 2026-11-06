@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}       # pulsante "Run workflow" per lanciarlo a mano
   push:
     branches: [main]
-    paths: ["config.yaml", "docs/index.html", "monitor.py"]
+    paths: ["config.yaml", "docs/index.html", "monitor.py", "gobid/gobid.json"]
 
 permissions:
   contents: read

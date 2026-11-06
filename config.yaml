@@ -10,7 +10,7 @@ fonti:
   demanio: true              # Agenzia del Demanio: veicoli e beni confiscati
   industrial_discount: true  # macchinari, veicoli, nautica (giudiziarie + vendite da aziende)
   astebusiness: true         # aste giudiziarie e private
-  gobid: false               # blocca i server di GitHub (errore 403): lasciare spento
+  gobid: true                # letto dal tuo PC (cartella pc/): GitHub viene bloccato da Gobid
 
 # Giorni di annunci da recuperare al primo avvio (poi lavora solo sui nuovi)
 backfill_giorni: 30

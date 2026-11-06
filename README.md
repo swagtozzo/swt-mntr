@@ -7,7 +7,7 @@ Controlla ogni ora i portali d'asta, filtra i lotti secondo i tuoi criteri, li m
 - **Agenzia del Demanio**: veicoli e beni mobili confiscati (non passano dal PVP).
 - **Industrial Discount**: macchinari, veicoli, nautica, anche vendite da aziende attive.
 - **AsteBusiness**: aste giudiziarie e private; quelle già presenti sul PVP vengono scartate come doppioni.
-- **Gobid**: spento, perché blocca i server di GitHub.
+- **Gobid**: letto dal tuo PC (cartella `pc/`, vedi ISTRUZIONI.txt), perché Gobid blocca i server di GitHub.
 
 Non letti in automatico: **astagiudiziaria.com** (il suo robots.txt vieta i programmi automatici; i suoi lotti marcati "PVP" arrivano comunque dal PVP) e **astalegale.net / portaleaste.com** (bloccano gli accessi automatici; le loro giudiziarie arrivano dal PVP).
 

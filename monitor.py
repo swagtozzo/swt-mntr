@@ -6,7 +6,8 @@ per i lotti nuovi che rispettano le regole.
 
 Fonti:
   - PVP  (Portale Vendite Pubbliche, Ministero della Giustizia) — API JSON pubblica
-  - Gobid (gobid.it) — aste giudiziarie e private (leasing, banche, aziende)
+  - Gobid (gobid.it) — letto dal PC di casa (cartella pc/), caricato in gobid/gobid.json
+  - Agenzia del Demanio, Industrial Discount, AsteBusiness
 
 Variabili d'ambiente (segreti GitHub):
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID  (se mancano, gli avvisi vengono saltati)
@@ -192,68 +193,7 @@ def pvp_normalizza(x: dict, regioni: dict) -> dict:
     }
 
 
-# ---------------------------------------------------------------- Gobid
-
 GOBID = "https://www.gobid.it"
-
-
-def gobid_scarica(s):
-    r = get_retry(lambda: s.get(GOBID + "/it/aste/", timeout=60))
-    r.raise_for_status()
-    m = re.search(r"ajaxHash\s*=\s*'([0-9a-f]+)'", r.text)
-    if not m:
-        raise RuntimeError("Gobid: chiave di ricerca non trovata (pagina cambiata o bloccata)")
-    h = m.group(1)
-    p = 1
-    while True:
-        data = {
-            "tipoRicerca": "aste", "tipoVis": "griglia", "p": p, "orderBy": 0, "pageSize": 48,
-            "idCatForzata": "", "idAsta": "", "idAnnuncioPVP": 0, "idLivello": "",
-            "sezione": "aste", "sezione2": "", "aEsclusi[]": "", "idCombinazione": "",
-            "testo": "", "ribassoMin": 0, "ribassoMax": 100, "azione": "ajaxSearch",
-        }
-        rr = get_retry(lambda: s.post(f"{GOBID}/controller/ricerca.php?ajaxSearch={h}", data=data,
-                                      timeout=60, headers={"X-Requested-With": "XMLHttpRequest",
-                                                           "Referer": GOBID + "/it/aste/"}))
-        rr.raise_for_status()
-        j = rr.json()
-        items = j.get("items") or []
-        log(f"  Gobid pagina {p}/{j.get('nPagine')}: {len(items)} aste")
-        yield from items
-        if not items or p >= int(j.get("nPagine") or 0):
-            break
-        p += 1
-        time.sleep(0.7)
-
-
-def gobid_normalizza(x: dict) -> dict:
-    titolo = html.unescape(x.get("titolo") or "")
-    sott = html.unescape(x.get("sottotitolo") or "")
-    fine = int(x.get("tsFine") or 0)
-    scad = dt.datetime.fromtimestamp(fine, TZ).strftime("%Y-%m-%dT%H:%M") if fine else None
-    img = x.get("imgPath1") or x.get("imgPath")
-    rib = x.get("percRibasso") or 0
-    return {
-        "id": f"gobid-{x['id']}",
-        "fonte": "Gobid",
-        "titolo": titolo,
-        "descrizione": f"{titolo} — {sott}".strip(" —"),
-        "categoria": classifica_testo(titolo + " " + sott),
-        "categoria_portale": sott,
-        "prezzo_base": None,
-        "offerta_minima": None,
-        "rialzo_minimo": None,
-        "ribasso_pct": int(rib) if rib else None,
-        "citta": "", "provincia": "", "regione": "",
-        "lat": None, "lon": None,
-        "scadenza": scad,
-        "pubblicata": None,
-        "tribunale": sott,
-        "procedura": None,
-        "lotto": f"{x.get('nLotti')} lotti" if x.get("nLotti") else None,
-        "immagine": f"{GOBID}/{img}" if img else None,
-        "url": f"{GOBID}/it/aste/{x.get('urlAsta')}",
-    }
 
 
 def vuoto(fonte: str, id_: str, titolo: str, url: str) -> dict:
@@ -628,23 +568,25 @@ def main():
         traceback.print_exc()
         esito_fonti["PVP"] = {"ok": False, "errore": str(e)[:300]}
 
-    # --- Gobid (scarica sempre tutto: ~2.500 aste attive)
+    # --- Gobid: lo legge il PC di casa (gobid/gobid.json), perché Gobid blocca i server di GitHub
     gobid_visti = set()
-    try:
-        if not attiva("gobid"):
-            raise _Spenta()
-        n = 0
-        for x in gobid_scarica(session()):
-            a = gobid_normalizza(x)
-            gobid_visti.add(a["id"])
-            raccolti.append(a)
-            n += 1
-        esito_fonti["Gobid"] = {"ok": True, "letti": n}
-    except _Spenta:
-        pass
-    except Exception as e:  # noqa: BLE001
-        traceback.print_exc()
-        esito_fonti["Gobid"] = {"ok": False, "errore": str(e)[:300]}
+    if attiva("gobid"):
+        f = ROOT / "gobid" / "gobid.json"
+        if f.exists():
+            try:
+                g = json.loads(f.read_text(encoding="utf-8"))
+                for a in g.get("aste", []):
+                    a["categoria"] = classifica_testo(a["titolo"] + " " + a.get("descrizione", ""))
+                    raccolti.append(a)
+                    gobid_visti.add(a["id"])
+                eta = (dt.datetime.now(TZ).replace(tzinfo=None) - dt.datetime.fromisoformat(g["aggiornato"])).total_seconds() / 3600
+                esito_fonti["Gobid"] = {"ok": True, "letti": len(gobid_visti), "dal_pc": g["aggiornato"]}
+                if eta > 30:
+                    esito_fonti["Gobid"] = {"ok": False, "errore": f"il PC non aggiorna Gobid da {int(eta)} ore (acceso?). Restano le aste già raccolte."}
+                    gobid_visti = set()
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                esito_fonti["Gobid"] = {"ok": False, "errore": str(e)[:300]}
 
     # --- fonti aggiuntive. Una fonte al suo primo giro non manda avvisi (caricherebbe tutto lo storico).
     stato = dati.get("stato") or {}

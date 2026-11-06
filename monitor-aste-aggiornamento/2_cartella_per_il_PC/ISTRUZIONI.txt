@@ -1,0 +1,43 @@
+MONITOR ASTE - LETTORE GOBID SUL PC
+===================================
+
+Questa cartella resta SOLO sul tuo PC. Non caricarla su GitHub (contiene la tua chiave).
+Mettila dove vuoi, per esempio in Documenti\MonitorAsteGobid.
+
+Cosa fa: ogni ora legge le aste nuove di Gobid (dalla mappa pubblica del sito),
+le manda al tuo repository swt-mntr e GitHub le aggiunge alla dashboard con gli avvisi Telegram.
+Funziona quando il PC e' acceso; quando lo riaccendi recupera le aste uscite nel frattempo.
+
+
+PASSO 1 - Crea la chiave per GitHub (una volta sola)
+----------------------------------------------------
+1. Apri https://github.com/settings/personal-access-tokens/new
+2. Token name: Monitor Aste Gobid
+   Expiration: 1 anno (o quanto preferisci)
+3. Repository access: "Only select repositories" -> scegli swt-mntr
+4. Permissions -> Repository permissions -> Contents: "Read and write"
+   (lascia tutto il resto com'e')
+5. Clicca "Generate token" e copia il codice (inizia con github_pat_...)
+6. In questa cartella crea un file di testo chiamato  token.txt
+   e incollaci SOLO il codice, senza spazi ne' righe vuote. Salva.
+
+La chiave puo' scrivere solo nel repository swt-mntr e puoi revocarla quando vuoi
+dalla stessa pagina di GitHub.
+
+
+PASSO 2 - Installa
+------------------
+Doppio clic su  installa.bat
+- installa quello che serve
+- crea l'attivita' pianificata "Monitor Aste Gobid" (ogni ora)
+- fa partire subito il primo giro (40-60 minuti la prima volta, poi pochi minuti)
+
+Alla fine, nella dashboard compare la fonte "Gobid".
+
+
+Se qualcosa non va
+------------------
+- Guarda il file gobid_log.txt in questa cartella: l'ultima riga dice cosa e' successo.
+- Se in dashboard Gobid e' segnato in rosso "il PC non aggiorna Gobid da X ore":
+  il PC e' rimasto spento; alla riaccensione si rimette in pari da solo.
+- Per togliere tutto: doppio clic su disinstalla.bat
