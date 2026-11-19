@@ -32,7 +32,10 @@ PREF = ROOT / "preferenze.json"
 PRIV = ROOT / "privato.enc"
 CHIAVE = os.environ.get("CHIAVE_DATI", "").strip()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-CHAT = str(os.environ.get("TELEGRAM_CHAT_ID", "")).strip()
+# TELEGRAM_CHAT_ID può contenere più ID separati da virgola: i comandi sono accettati da tutti,
+# la risposta va a chi ha scritto e, se le impostazioni cambiano, gli altri ricevono un avviso.
+CHATS = [c.strip() for c in str(os.environ.get("TELEGRAM_CHAT_ID", "")).replace(";", ",").split(",") if c.strip()]
+CHAT = CHATS[0] if CHATS else ""  # chat a cui rispondere (cambia per ogni messaggio letto)
 API = f"https://api.telegram.org/bot{TOKEN}"
 DATI_URL = os.environ.get("DATI_URL", "")   # cartella dei dati della dashboard (…/data)
 
@@ -379,7 +382,8 @@ def output(k, v):
 
 
 def main():
-    if not TOKEN or not CHAT:
+    global CHAT
+    if not TOKEN or not CHATS:
         print("TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID mancanti")
         sys.exit(0)
     r = tg("getUpdates", timeout=0, allowed_updates=json.dumps(["message"]))
@@ -393,18 +397,29 @@ def main():
     flag = {"aggiorna": False}
     for u in upd:
         msg = u.get("message") or {}
-        if str((msg.get("chat") or {}).get("id")) != CHAT:
-            continue  # messaggi da altre chat: ignorati
+        mittente = str((msg.get("chat") or {}).get("id"))
+        if mittente not in CHATS:
+            continue  # messaggi da chat non autorizzate: ignorati
+        CHAT = mittente
         testo = (msg.get("text") or "").strip()
         m = re.match(r"^/([A-Za-zàèéìòù_]+)(?:@\w+)?\s*(.*)$", testo, re.S)
         if not m:
             rispondi("Usa i comandi: scrivi /aiuto per l'elenco.")
             continue
+        prima = imp.cambiato
+        imp.cambiato = False
         try:
             risposta = esegui(m.group(1).lower(), m.group(2).strip(), imp, flag)
         except Exception as ex:  # noqa: BLE001
             risposta = "Errore nell'eseguire il comando: " + e(ex)
         rispondi(risposta)
+        if imp.cambiato:
+            chi = (msg.get("from") or {}).get("first_name") or mittente
+            for altro in CHATS:
+                if altro != mittente:
+                    tg("sendMessage", chat_id=altro, parse_mode="HTML",
+                       text=f"ℹ️ <b>{e(chi)}</b> ha cambiato le impostazioni: <code>{e(testo[:200])}</code>")
+        imp.cambiato = imp.cambiato or prima
     file_salvato = imp.salva()
     if imp.cambiato:
         flag["aggiorna"] = True

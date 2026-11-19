@@ -779,17 +779,29 @@ def euro(v):
     return "€ " + f"{v:,.0f}".replace(",", ".")
 
 
+def telegram_chat():
+    """TELEGRAM_CHAT_ID può contenere più ID separati da virgola: l'avviso arriva a tutti."""
+    return [c.strip() for c in os.environ.get("TELEGRAM_CHAT_ID", "").replace(";", ",").split(",") if c.strip()]
+
+
 def telegram_invia(testo: str):
-    token, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat:
+    token, chats = os.environ.get("TELEGRAM_BOT_TOKEN"), telegram_chat()
+    if not token or not chats:
         return False
+    ok = False
+    for chat in chats:
+        ok = _telegram_invia_a(token, chat, testo) or ok
+    return ok
+
+
+def _telegram_invia_a(token, chat, testo, tentativi=3):
     r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30, data={
         "chat_id": chat, "text": testo, "parse_mode": "HTML", "disable_web_page_preview": "true"})
-    if r.status_code == 429:
+    if r.status_code == 429 and tentativi > 0:
         time.sleep(int(r.json().get("parameters", {}).get("retry_after", 5)) + 1)
-        return telegram_invia(testo)
+        return _telegram_invia_a(token, chat, testo, tentativi - 1)
     if not r.ok:
-        log("  Telegram errore:", r.status_code, r.text[:200])
+        log(f"  Telegram errore (chat {chat}):", r.status_code, r.text[:200])
     return r.ok
 
 
