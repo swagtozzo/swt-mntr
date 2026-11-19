@@ -14,6 +14,7 @@ Scrive in $GITHUB_OUTPUT:
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import html
 import json
 import os
@@ -74,6 +75,7 @@ COMANDI = [
     ("riprendi", "Riattiva gli avvisi"),
     ("aggiorna", "Controlla i portali adesso"),
     ("reset", "Torna alle impostazioni di config.yaml"),
+    ("riparti", "Svuota dashboard e avvisi e riparti da zero: /riparti si"),
 ]
 
 
@@ -360,6 +362,16 @@ def esegui(cmd, arg, imp: Impostazioni, flag: dict) -> str:
         flag["aggiorna"] = True
         return "Avvio un controllo dei portali adesso: ci vogliono alcuni minuti."
 
+    if cmd == "riparti":
+        if arg.strip().lower() not in ("si", "sì", "ok", "conferma"):
+            return ("🔄 <b>Ripartenza da zero</b>\n"
+                    "Svuoto la dashboard e ricarico tutte le aste aperte con i filtri attuali. Il primo giro non manda avvisi "
+                    "(solo un riepilogo), al secondo arrivano i lotti della tua lista, poi solo le aste nuove.\n"
+                    "Stelle, stati e note che hai messo nella dashboard restano.\n\n"
+                    "Per confermare scrivi: <code>/riparti si</code>")
+        imp.set("ripartenza", dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
+        flag["aggiorna"] = True
+        return "🔄 Ok, riparto da zero. Il giro parte adesso: tra qualche minuto ti arriva il riepilogo."
     if cmd == "reset":
         if imp.cifrato:
             return ("Le impostazioni sono cifrate: per riportarle a una versione precedente usa "

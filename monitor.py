@@ -1159,6 +1159,15 @@ def main():
     filtri = Filtri(cfg)
     regole = regole_avviso(cfg)
     dati = leggi_dato("aste", {"aste": []})
+    # Ripartenza da zero (comando /riparti del bot): dashboard e avvisi ricominciano come al primo avvio.
+    # Si tengono solo le cache che non cambiano nulla (coordinate, bandi del Demanio, prezzi dei metalli).
+    rip = str(cfg.get("ripartenza") or "")
+    stato_prec = dati.get("stato") or {}
+    ripartenza = bool(rip and stato_prec.get("ripartenza") != rip)
+    if ripartenza:
+        log(f"RIPARTENZA DA ZERO ({rip})")
+        dati = {"aste": [], "stato": {"ripartenza": rip, **{k: stato_prec[k] for k in
+                ("coordinate", "demanio_bandi", "prezzi_metalli") if k in stato_prec}}}
     esistenti = {a["id"]: a for a in dati.get("aste", [])}
     ultimo = dati.get("aggiornato")
     primo_avvio = not ultimo
@@ -1268,6 +1277,11 @@ def main():
         elenco_completo["Gobid"] = gobid_visti
     if INDDISC_STATO.get("max_id"):
         stato["inddisc_ultimo_id"] = max(INDDISC_STATO["max_id"], ultimo_id)
+
+    if ripartenza and not esito_fonti.get("PVP", {}).get("ok"):
+        # senza il PVP la ripartenza sarebbe a metà e al giro dopo arriverebbero centinaia di avvisi: riprovo
+        log("Ripartenza rimandata: il PVP non ha risposto. Riprovo al prossimo giro.")
+        sys.exit(1)
 
     # --- doppioni dichiarati (AsteBusiness indica il numero PVP)
     pvp_ids = {a["id"] for a in raccolti if a["fonte"] == "PVP"} | {k for k in esistenti if k.startswith("pvp-")}
@@ -1388,8 +1402,11 @@ def main():
         if resto > 0:
             telegram_invia(f"➕ Altri <b>{resto}</b> lotti nuovi corrispondono ai tuoi avvisi: li trovi nella dashboard.")
     elif os.environ.get("TELEGRAM_BOT_TOKEN"):
-        telegram_invia(f"✅ Monitor aste attivo. Primo caricamento completato: <b>{len(tenute)}</b> aste in dashboard. "
-                       "Da ora ti scrivo solo per i lotti nuovi che rispettano i tuoi avvisi.")
+        n_lista = sum(1 for a in tenute if a.get("lista"))
+        n_occ = sum(1 for a in tenute if a.get("occasione"))
+        telegram_invia(("🔄 <b>Monitor ripartito da zero.</b>\n" if ripartenza else "✅ <b>Monitor aste attivo.</b>\n")
+                       + f"In dashboard: <b>{len(tenute)}</b> aste aperte · ⭐ {n_lista} nella tua lista · ⚡ {n_occ} occasioni.\n"
+                       "Al prossimo giro ti mando i lotti della tua lista; poi solo le aste nuove che rispettano i tuoi avvisi.")
 
     if not cfg.get("avvisi_in_pausa") and not primo_avvio:
         # promemoria sulle aste che segui
