@@ -49,7 +49,7 @@ def dati_dashboard() -> dict:
             return decifra(r.text, CHIAVE)
     return requests.get(base + "/aste.json", timeout=90).json()
 
-CATEGORIE = ["auto_moto", "immobili", "macchinari", "orologi_gioielli", "moda_lusso", "sport_outdoor", "nautica"]
+CATEGORIE = ["auto_moto", "immobili", "macchinari", "orologi_gioielli", "collezionismo", "tech", "moda_lusso", "sport_outdoor", "nautica", "arte"]
 COMANDI = [
     ("aiuto", "Elenco dei comandi"),
     ("stato", "Ultimo controllo, fonti e impostazioni principali"),

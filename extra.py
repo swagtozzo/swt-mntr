@@ -333,3 +333,261 @@ def testo_pdf(dati: bytes) -> str:
     from pypdf import PdfReader
     r = PdfReader(io.BytesIO(dati))
     return "\n".join((p.extract_text() or "") for p in r.pages[:40])
+
+
+# ---------------------------------------------------------------- stima del valore di oro e argento
+
+ONCIA = 31.1035
+# monete d'oro: grammi di oro FINO contenuti
+MONETE_ORO = [  # (regex, grammi fini, nome)
+    (r"krugerrand", ONCIA, "Krugerrand"), (r"maple ?leaf", ONCIA, "Maple Leaf"), (r"american eagle", ONCIA, "Eagle"),
+    (r"filarmonica|philharmoniker", ONCIA, "Filarmonica"), (r"britannia", ONCIA, "Britannia"),
+    (r"50 pesos", 37.5, "50 pesos"), (r"mezz[ae] sterlin[ae]|1/2 sterlin[ae]", 3.66, "mezza sterlina"),
+    (r"sterlin[ae]", 7.32, "sterlina"), (r"marengh[io]|20 franchi|20 lire", 5.81, "marengo"),
+    (r"10 franchi|10 lire", 2.90, "10 franchi"), (r"ducat[oi]", 3.44, "ducato"),
+]
+TITOLI_ORO = [  # (regex, purezza)
+    (r"\b24\s?(?:k|kt|ct|carati)\b|\b999(?:[.,]9)?\b|oro (?:puro|fino)|lingott", 0.999),
+    (r"\b22\s?(?:k|kt|ct|carati)\b|\b916\b", 0.916),
+    (r"\b18\s?(?:k|kt|ct|carati)\b|\b750\b", 0.750),
+    (r"\b14\s?(?:k|kt|ct|carati)\b|\b585\b", 0.585),
+    (r"\b9\s?(?:k|kt|ct|carati)\b|\b375\b", 0.375),
+]
+_NUM = r"\d{1,3}(?:\.\d{3})+(?:,\d{1,3})?|\d+(?:[.,]\d{1,3})?"
+RX_NUMERO = re.compile(_NUM)
+RX_UNITA_PRIMA = re.compile(r"(?:\bpeso|\bpesa|\bgr|\bgrammi|\bg)\b[\s.:]*(?:(?:lordo|netto|complessivo|totale|circa|di|pari a|ca)\b[\s.:]*){0,3}$", re.I)
+RX_UNITA_DOPO = re.compile(r"^\s*(?:gr\b\.?|grammi\b|g\b)", re.I)
+RX_KG_PRIMA = re.compile(r"\bkg\b[\s.:]*$", re.I)
+RX_KG_DOPO = re.compile(r"^\s*(?:kg|chili|chilogrammi)\b", re.I)
+RX_CARATI = re.compile(r"(?:\bct|carat\w*|\bkt|\bk)[\s.:]*$", re.I)
+RX_CARATI_DOPO = re.compile(r"^\s*(?:ct|kt|k|carat\w*)\b", re.I)
+RX_COMPLESSIVO = re.compile(r"(?:complessiv\w*|totale)", re.I)
+
+
+def pesi_nel_testo(t: str, anche_kg: bool):
+    """Pesi in grammi scritti nel testo ("gr 25,4", "peso lordo 112 g", "kg 3,5")."""
+    pesi = []
+    for m in RX_NUMERO.finditer(t):
+        prima, dopo = t[max(0, m.start() - 40):m.start()], t[m.end():m.end() + 12]
+        if RX_CARATI.search(prima[-6:]) or RX_CARATI_DOPO.match(dopo):
+            continue   # "ct 0,50" / "18 kt": carati, non peso
+        v = _num(m.group(0))
+        if v is None:
+            continue
+        if RX_UNITA_DOPO.match(dopo) or RX_UNITA_PRIMA.search(prima):
+            pesi.append((v, bool(RX_COMPLESSIVO.search(prima[-30:]))))
+        elif anche_kg and (RX_KG_DOPO.match(dopo) or RX_KG_PRIMA.search(prima)):
+            pesi.append((v * 1000, bool(RX_COMPLESSIVO.search(prima[-30:]))))
+    tot = [p for p, c in pesi if c]
+    pesi = tot[:1] if tot else [p for p, _ in pesi]
+    # "argento 925 gr 2.300": il 925 è il titolo, non un peso
+    if len(pesi) > 1:
+        pesi = [p for p in pesi if p not in (375, 585, 750, 800, 916, 925, 999)] or pesi
+    return pesi
+
+
+RX_ORO = re.compile(r"\boro\b|\bgold\b|lingott|sterlin|marengh|krugerrand", re.I)
+RX_ARGENTO = re.compile(r"\bargent(?:o|eria|ato)\b|\bsilver\b", re.I)
+RX_FALSO = re.compile(r"placcat|dorat|argentat|laminat|bigiotteria|similoro|\bplaqu|gold filled|vermeil|color oro|colore oro|tono oro", re.I)
+RX_OROLOGIO = re.compile(r"orolog|cronograf", re.I)
+
+
+def _num(s):
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+(?:,\d+)?", s):
+        s = s.replace(".", "").replace(",", ".")      # 1.250 / 2.300,5
+    else:
+        s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def prezzi_metalli(cfg: dict, stato: dict, get=None) -> dict:
+    """Prezzo spot in €/grammo di oro e argento. Fonti gratuite senza chiave; se non rispondono si usa
+    l'ultimo prezzo buono salvato, poi quello scritto a mano in privato.yaml (preziosi.oro_euro_grammo)."""
+    import requests
+    get = get or (lambda u: requests.get(u, timeout=20, headers={"User-Agent": "MonitorAste/1.0"}).json())
+    out = {}
+    try:
+        j = get("https://xaus.com/api/v1/spot?currency=EUR&unit=gram")
+        v = float((j.get("xau") or {}).get("price") or 0)
+        if 20 < v < 1000:
+            out["oro"] = v
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        usd_eur = float(get("https://api.frankfurter.app/latest?from=USD&to=EUR")["rates"]["EUR"])
+        if "oro" not in out:
+            v = float(get("https://api.gold-api.com/price/XAU")["price"]) * usd_eur / ONCIA
+            if 20 < v < 1000:
+                out["oro"] = v
+        v = float(get("https://api.gold-api.com/price/XAG")["price"]) * usd_eur / ONCIA
+        if 0.1 < v < 20:
+            out["argento"] = v
+    except Exception:  # noqa: BLE001
+        pass
+    salvati = stato.setdefault("prezzi_metalli", {})
+    man = cfg.get("preziosi") or {}
+    for k, chiave_man in (("oro", "oro_euro_grammo"), ("argento", "argento_euro_grammo")):
+        if out.get(k):
+            salvati[k] = round(out[k], 3)
+        elif salvati.get(k):
+            out[k] = salvati[k]
+        elif man.get(chiave_man):
+            out[k] = float(man[chiave_man])
+    return out
+
+
+def stima_preziosi(testo: str, prezzi: dict) -> dict | None:
+    """Stima rapida del valore del metallo contenuto (oro o argento) leggendo peso e titolo dal testo.
+    Non conta pietre, lavorazione e marca: è il valore 'a peso' (quello che pagherebbe un compro oro, più o meno)."""
+    t = testo or ""
+    if RX_FALSO.search(t) or RX_OROLOGIO.search(t):
+        return None
+    oro, argento = RX_ORO.search(t), RX_ARGENTO.search(t)
+    if not (oro or argento):
+        return None
+    # monete d'oro: contenuto noto
+    if oro and prezzi.get("oro"):
+        for rx, fino, nome in MONETE_ORO:
+            m = re.search(r"(?:\b(\d{1,4})\s*(?:x\s*)?(?:monet[ae]\s*(?:d.oro\s*)?(?:da\s*)?)?)?(?:" + rx + ")", t, re.I)
+            if m:
+                n = int(m.group(1)) if m.group(1) and 0 < int(m.group(1)) < 5000 else 1
+                g = n * fino
+                return {"valore": round(g * prezzi["oro"]), "grammi_fini": round(g, 1), "metallo": "oro",
+                        "dettaglio": f"{n} × {nome} = {g:.1f} g di oro fino a € {prezzi['oro']:.0f}/g"}
+    pesi = pesi_nel_testo(t, anche_kg=bool(argento and not oro))
+    pesi = [p for p in pesi if p and 0.3 <= p <= 100000]
+    if not pesi:
+        return None
+    grammi = sum(pesi)
+    metallo = "oro" if oro else "argento"
+    if metallo == "oro":
+        purezza, presunto = 0.750, True
+        for rx, pu in TITOLI_ORO:
+            if re.search(rx, t, re.I):
+                purezza, presunto = pu, False
+                break
+    else:
+        purezza, presunto = (0.925, False) if re.search(r"\b925\b|sterling", t, re.I) else \
+                            (0.800, not re.search(r"\b800\b", t))
+    prezzo = prezzi.get(metallo)
+    if not prezzo:
+        return None
+    fino = grammi * purezza
+    tit = f"{round(purezza * 1000)}‰" + (" presunto" if presunto else "")
+    return {"valore": round(fino * prezzo), "grammi_fini": round(fino, 1), "metallo": metallo,
+            "dettaglio": f"{grammi:g} g di {metallo} {tit} a € {prezzo:.2f}/g" + (" · peso lordo, con pietre" if "lordo" in t.lower() else "")}
+
+
+# ---------------------------------------------------------------- dintorni di un immobile (OpenStreetMap)
+
+OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+_IMPIANTI = "chair_lift|gondola|cable_car|drag_lift|t-bar|j-bar|platter|mixed_lift"
+
+
+def _query_dintorni(lat: float, lon: float) -> str:
+    p = f"{lat:.6f},{lon:.6f}"
+    return (f'[out:json][timeout:40];'
+            f'way(around:4000,{p})[natural=coastline]->.c;'
+            f'nwr(around:1500,{p})[natural=beach]->.b;'
+            f'way(around:6000,{p})[aerialway~"^({_IMPIANTI})$"]->.a;'
+            f'(.c;.b;.a;);out geom;'
+            f'nwr(around:3000,{p})[amenity=university]->.u;'
+            f'nwr(around:1500,{p})[railway=station][station!=subway]->.s;'
+            f'nwr(around:1000,{p})[station=subway]->.m;'
+            f'(.u;.s;.m;);out center;')
+
+
+def _metri(a, b) -> float:
+    """Distanza approssimata in metri (equirettangolare: va benissimo entro qualche km)."""
+    k = math.cos(math.radians((a[0] + b[0]) / 2))
+    return math.hypot((a[0] - b[0]) * 111_195, (a[1] - b[1]) * 111_195 * k)
+
+
+def _al_segmento(p, a, b) -> float:
+    k = math.cos(math.radians(p[0]))
+    ax, ay, bx, by, px, py = a[1] * k, a[0], b[1] * k, b[0], p[1] * k, p[0]
+    dx, dy = bx - ax, by - ay
+    t = 0 if dx == dy == 0 else max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    return _metri(p, (ay + t * dy, (ax + t * dx) / k))
+
+
+def _distanza(p, el) -> float | None:
+    if el.get("geometry"):
+        g = [(q["lat"], q["lon"]) for q in el["geometry"] if q]
+        if len(g) == 1:
+            return _metri(p, g[0])
+        return min(_al_segmento(p, g[i], g[i + 1]) for i in range(len(g) - 1)) if g else None
+    if el.get("members"):
+        ds = [_distanza(p, m) for m in el["members"] if m.get("geometry")]
+        ds = [d for d in ds if d is not None]
+        return min(ds) if ds else None
+    c = el.get("center") or ({"lat": el["lat"], "lon": el["lon"]} if "lat" in el else None)
+    return _metri(p, (c["lat"], c["lon"])) if c else None
+
+
+def dintorni(lat: float, lon: float, post=None) -> dict | None:
+    """Cosa c'è vicino a un immobile: mare, impianti da sci, università, stazione (distanze in metri)."""
+    import requests
+    post = post or (lambda url, q: requests.post(url, data={"data": q}, timeout=60,
+                                                 headers={"User-Agent": "MonitorAste/1.0 (uso personale)"}).json())
+    q = _query_dintorni(lat, lon)
+    j = None
+    for url in OVERPASS:
+        try:
+            j = post(url, q)
+            break
+        except Exception:  # noqa: BLE001
+            continue
+    if j is None:
+        return None
+    p = (lat, lon)
+    out = {}
+
+    def migliore(chiave, d, nome=None):
+        if d is not None and (chiave not in out or d < out[chiave]["m"]):
+            out[chiave] = {"m": round(d), **({"nome": nome} if nome else {})}
+
+    for el in j.get("elements", []):
+        t = el.get("tags") or {}
+        d = _distanza(p, el)
+        if t.get("natural") in ("coastline", "beach"):
+            migliore("mare", d)
+        elif t.get("aerialway"):
+            migliore("impianti", d, t.get("name"))
+        elif t.get("amenity") == "university":
+            migliore("universita", d, t.get("name"))
+        elif t.get("station") == "subway":
+            migliore("metro", d, t.get("name"))
+        elif t.get("railway") == "station":
+            migliore("stazione", d, t.get("name"))
+    return out
+
+
+def _dist(m: int) -> str:
+    return f"{round(m / 10) * 10} m" if m < 1000 else f"{m / 1000:.1f} km".replace(".", ",")
+
+
+def perche_interessa(a: dict, anno=None) -> list[str]:
+    """Motivi brevi e concreti per cui un lotto può interessare (per la didascalia degli avvisi)."""
+    r = []
+    d = a.get("dintorni") or {}
+    if d.get("mare") and d["mare"]["m"] <= 3000:
+        r.append(f"{_dist(d['mare']['m'])} dal mare")
+    if d.get("impianti") and d["impianti"]["m"] <= 5000:
+        r.append(f"{_dist(d['impianti']['m'])} dagli impianti da sci")
+    if d.get("universita") and d["universita"]["m"] <= 2500:
+        nome = (d["universita"].get("nome") or "università")
+        nome = nome if len(nome) <= 38 else "università"
+        r.append(f"{_dist(d['universita']['m'])} da {nome}")
+    if d.get("metro") and d["metro"]["m"] <= 800:
+        r.append(f"metro {d['metro'].get('nome') or ''} a {_dist(d['metro']['m'])}".replace("  ", " "))
+    elif d.get("stazione") and d["stazione"]["m"] <= 1000:
+        r.append(f"stazione a {_dist(d['stazione']['m'])}")
+    if a.get("localita_turistica") and not (d.get("mare") or d.get("impianti")):
+        r.append(a["localita_turistica"])
+    if anno and a.get("categoria") in ("auto_moto", "nautica"):
+        r.insert(0, f"anno {anno}")
+    return r[:3]

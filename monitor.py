@@ -19,6 +19,7 @@ import html
 import json
 import os
 import re
+import unicodedata
 import sys
 import time
 import traceback
@@ -41,10 +42,13 @@ CATEGORIE_LABEL = {
     "auto_moto": "Auto e moto",
     "immobili": "Immobili",
     "macchinari": "Macchinari e attrezzature",
-    "orologi_gioielli": "Orologi, gioielli, arte",
-    "moda_lusso": "Moda e lusso",
+    "orologi_gioielli": "Orologi, gioielli e preziosi",
+    "collezionismo": "Collezionismo e retrogaming",
+    "tech": "Tech, foto e musica",
+    "moda_lusso": "Moda, sneakers e lusso",
     "sport_outdoor": "Sport e outdoor",
     "nautica": "Nautica",
+    "arte": "Quadri, statue e antiquariato",
     "altro": "Altro",
 }
 
@@ -59,15 +63,43 @@ PVP_CAT = {
 
 # Parole che classificano il testo libero (usate per Gobid e per lotti PVP generici)
 CLASSIFICA = [
-    ("orologi_gioielli", r"orolog|rolex|omega|seiko|tudor|cartier|patek|audemars|panerai|breitling|gioiell|preziosi|\boro\b|diamant|brillant|dipint|opere? d.arte|antiquariat"),
-    ("moda_lusso", r"borse?\b|louis vuitton|gucci|prada|herm[eè]s|chanel|dior|balenciaga|moncler|abbigliament|calzatur|scarpe|sneaker|pellett|capi d"),
+    ("orologi_gioielli", r"orolog|rolex|omega|seiko|tudor|cartier|patek|audemars|panerai|breitling|gioiell|preziosi|\boro\b|diamant|brillant|sterlin[ae]|marengh|krugerrand|lingott|\bcarati\b|\b18\s?kt?\b"),
+    ("collezionismo", r"figurin|album panini|pok[eé]mon|magic:? the gathering|yu-?gi-?oh|carte collezionabil|trading card|\btcg\b|\blego\b|action figure|funko|hot wheels|modellin[oi]|modellismo|trenin[oi] elettric|m[äa]rklin|retro-?gaming|videogioch|\bnintendo|game ?boy|super nintendo|\bsnes\b|\bn64\b|gamecube|sega (?:mega|master|saturn|dreamcast|game)|mega ?drive|dreamcast|\batari\b|neo ?geo|cabinato arcade|\barcade\b|flipper|juke-?box|vinil[ei]|dischi in vinile|33 giri|45 giri|fumett|\bmanga\b|numismatic|monete da collezione|francobolli|filatel|giocattoli d.epoca|playstation (?:1|one|2)\b|\bpsx\b|\bps1\b|\bps2\b|console (?:per |di )?(?:video)?giochi"),
+    ("tech", r"\biphone|\bipad|macbook|\bimac\b|mac (?:mini|studio|pro)|apple watch|airpods|fotocamer|macchin[ae] fotografic|\breflex\b|mirrorless|\bleica\b|hasselblad|fujifilm|obiettiv[oi] (?:fotografic|canon|nikon|sony|sigma|zeiss|tamron)|\bdron[ie]\b|\bdji\b|gopro|playstation ?5|\bps5\b|xbox|nintendo switch|scheda video|\brtx ?\d|stampant[ei] 3d|bambu ?lab|\bprusa\b|chitarr|\bfender\b|\bgibson\b|\bmarshall\b|sintetizzator|\bsynth|pianoforte digitale|giradischi|\bhi-?fi\b|mcintosh|marantz|bang ?& ?olufsen|\bsonos\b"),
+    ("moda_lusso", r"borse?\b|louis vuitton|gucci|prada|herm[eè]s|chanel|dior|balenciaga|moncler|abbigliament|calzatur|scarpe|sneaker|\bjordan\b|yeezy|nike dunk|off-white|pellett|capi d"),
     ("nautica", r"\bbarca|\bbarche|gommon|natante|imbarcazion|motoscaf|fuoribordo|veliero|yacht|\bgozzo|cabinato"),
-    ("sport_outdoor", r"\bsurf|\bsup\b|kitesurf|windsurf|\bbici|biciclett|e-?bike|casco|tuta moto|dainese|alpinestars|palestra|fitness|tapis|attrezzatura sportiv|\bski\b|\bsci\b|snowboard"),
+    ("sport_outdoor", r"\bsurf|\bsup\b|kitesurf|windsurf|\bbici|biciclett|e-?bike|casco moto|tuta moto|dainese|alpinestars|palestra|fitness|tapis|attrezzatura sportiv|\bski\b|\bsci\b|snowboard|colnago|pinarello|cinelli"),
     ("auto_moto", r"\bauto\b|autovettur|automobil|\bmoto\b|motocicl|motoveicol|scooter|ciclomotor|furgon|fiat|bmw|audi|mercedes|volkswagen|\bvw\b|ford|toyota|renault|peugeot|alfa romeo|porsche|ferrari|lamborghini|maserati|jeep|land rover|ducati|yamaha|honda|kawasaki|harley|vespa|piaggio|quad\b"),
     ("macchinari", r"macchinar|macchine|attrezzatur|tornio|fresatric|centr[oi] di lavoro|escavator|muletto|carrell[oi] elevator|gru\b|compressor|pressa|impianto|utensil|trattor|rimorchi|semirimorchi|camion"),
     ("immobili", r"immobil|appartament|villa\b|villino|terreno|capannon|negozio|abitazion|fabbricat|box auto|garage"),
 ]
+# Quadri, statue e antiquariato: non interessano, finiscono in una categoria a parte (spenta)
+RX_ARTE = re.compile(r"dipint|\bquadr[oi]\b(?! elettric| comandi| di comando)|olio su (?:tela|tavola)|acquerell|litografi|serigrafi|incision[ei]|\bstamp[ae] antic|scultur|\bstatu[ae]|bronzett|opere? d.arte|antiquariat|mobil[ei] (?:antic|d.epoca)|\bpittor|tappet[oi] persian|icona sacra", re.I)
 CLASSIFICA = [(c, re.compile(p, re.I)) for c, p in CLASSIFICA]
+_CL = dict(CLASSIFICA)
+# se il testo parla anche di questi, non è "solo arte" (es. "orologio e quadro", "carte Pokémon e stampe")
+RX_NON_ARTE = re.compile("|".join(_CL[c].pattern for c in ("orologi_gioielli", "collezionismo", "tech")), re.I)
+NUOVE_CATEGORIE = {"collezionismo", "tech", "arte"}
+
+
+def categoria_pvp(cat_pvp: str, testo: str) -> str:
+    """Categoria per un lotto mobile del PVP: la categoria del portale, corretta col testo."""
+    dal_testo = classifica_testo(testo, mobile=True)
+    if dal_testo in NUOVE_CATEGORIE:
+        return dal_testo
+    if cat_pvp == "ARTE_OREF_OROL_ANTIQ" and dal_testo not in ("orologi_gioielli", "altro"):
+        return dal_testo
+    return PVP_CAT.get(cat_pvp) or dal_testo
+
+
+def riclassifica(a):
+    """Lotti già in dashboard, classificati con le regole vecchie: li sposta nelle categorie nuove."""
+    if a.get("categoria") == "immobili":
+        return
+    testo = f"{a.get('titolo', '')} {a.get('descrizione', '')}"
+    nuova = classifica_testo(testo, mobile=True)
+    if nuova in NUOVE_CATEGORIE:
+        a["categoria"] = nuova
 
 
 # ---------------------------------------------------------------- utilità
@@ -80,6 +112,12 @@ def oggi() -> dt.date:
     return dt.datetime.now(TZ).date()
 
 
+def norm_luogo(s: str) -> str:
+    """'L'Aquila' / 'L AQUILA' / 'Forlì' -> 'l aquila' / 'forli'."""
+    s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z]+", " ", s).strip()
+
+
 def kw_regex(parole):
     parole = [p.strip() for p in parole or [] if p and p.strip()]
     if not parole:
@@ -90,6 +128,9 @@ def kw_regex(parole):
 
 def classifica_testo(testo: str, mobile: bool = False) -> str:
     """mobile=True: il bene è sicuramente mobile, quindi mai 'immobili'."""
+    if RX_ARTE.search(testo or "") and not RX_NON_ARTE.search(testo or "") \
+            and (mobile or not _CL["immobili"].search(testo or "")):
+        return "arte"
     for cat, rx in CLASSIFICA:
         if mobile and cat == "immobili":
             continue
@@ -124,26 +165,55 @@ PVP_DETTAGLIO = PVP_BASE + "/pvp/it/detail_annuncio.page?idAnnuncio={id}"
 PVP_VENDITA = PVP_BASE + "/ve-3f723b85-986a1b71/ve-ms/vendite/{id}/restricted"
 
 
-def pvp_portali(s, pvp_id: str) -> list:
-    """Portali di un'asta PVP: V = dove si fa l'offerta (gestore), P = pubblicità, A = altri siti."""
+PORTALI_V = 3   # versione del formato dei link ai portali: se cambia, i link già salvati vengono rifatti
+
+
+def link_specifico(url: str) -> bool:
+    """True se il link porta a una pagina precisa e non alla home del sito (https://www.sito.it/ o /it/)."""
+    resto = re.sub(r"^https?://[^/]+", "", url or "").strip("/")
+    return bool(resto) and resto.lower() not in ("it", "index.php", "home", "it/home", "index.html")
+
+
+def pvp_portali(s, pvp_id: str, info: dict | None = None) -> list:
+    """Portali di un'asta PVP: V = dove si fa l'offerta (gestore), P = pubblicità, A = altri siti.
+    Molti gestori non indicano l'indirizzo dell'inserzione ma solo la home del sito: in quel caso si usa
+    il modello di ricerca che ogni sito registra sul PVP (urlRicerca con ${idInserzione}); se manca anche
+    quello il link viene segnato come 'generico' e la dashboard e Telegram aprono la scheda PVP."""
     r = s.get(PVP_VENDITA.format(id=pvp_id), timeout=30, headers={"Accept": "application/json"})
     r.raise_for_status()
     j = r.json()
     b = j.get("body", j) if isinstance(j, dict) else {}
+    if info is not None:
+        try:
+            info["stima"] = float(b.get("impoStima")) if b.get("impoStima") else None   # valore di stima del perito
+        except (TypeError, ValueError):
+            info["stima"] = None
     out, visti = [], set()
     for x in sorted(b.get("siti") or [], key=lambda x: 0 if x.get("flagTipoSito") == "V" else 1):
-        url = (x.get("urlInserizione") or x.get("link") or "").replace("//it/", "/it/")
+        url = (x.get("urlInserizione") or "").strip().replace("//it/", "/it/")
+        if not link_specifico(url) and "${idInserzione}" in (x.get("urlRicerca") or ""):
+            url = x["urlRicerca"].replace("${idInserzione}", str(pvp_id)).strip()
+        if not url:
+            url = (x.get("link") or "").strip()
         tipo = "V" if x.get("flagTipoSito") == "V" else "P"
         dom = re.sub(r"^https?://(www\.)?", "", x.get("link") or url).split("/")[0]
         if url and (tipo, dom) not in visti:
             visti.add((tipo, dom))
-            out.append({"tipo": tipo, "nome": dom, "url": url})
+            p = {"tipo": tipo, "nome": dom, "url": url}
+            if not link_specifico(url):
+                p["generico"] = True
+            out.append(p)
     for x in b.get("altriSiti") or []:
         url = x.get("urlSito") or ""
         dom = re.sub(r"^https?://(www\.)?", "", url).split("/")[0]
         if url and not any(o["nome"] == dom for o in out):
-            out.append({"tipo": "A", "nome": dom, "url": url})
+            out.append({"tipo": "A", "nome": dom, "url": url, "generico": not link_specifico(url)})
     return out
+
+
+def gestore_link(a):
+    """Il portale dove si fa l'offerta, solo se il link porta all'inserzione (non alla home del sito)."""
+    return next((p for p in a.get("portali") or [] if p.get("tipo") == "V" and not p.get("generico")), None)
 
 
 # ---------------------------------------------------------------- foto di anteprima dai portali
@@ -208,7 +278,7 @@ def cerca_foto(aste: list, massimo: int = 600):
 def pvp_arricchisci(aste: list, max_richieste: int = 1200):
     """Aggiunge i portali alle aste PVP che non li hanno ancora: prima le nuove, poi quelle che chiudono prima."""
     oggi_iso = oggi().isoformat()
-    da_fare = [a for a in aste if a["fonte"] == "PVP" and "portali" not in a
+    da_fare = [a for a in aste if a["fonte"] == "PVP" and ("portali" not in a or a.get("portali_v") != PORTALI_V)
                and (a.get("scadenza") or "9999")[:10] >= oggi_iso]
     da_fare.sort(key=lambda a: (a.get("visto_il") or "") , reverse=True)
     nuove = [a for a in da_fare if a.get("_nuova")]
@@ -217,7 +287,11 @@ def pvp_arricchisci(aste: list, max_richieste: int = 1200):
     fatte = errori = 0
     for a in (nuove + resto)[:max_richieste]:
         try:
-            a["portali"] = pvp_portali(s, a["id"].split("-", 1)[1])
+            info = {}
+            a["portali"] = pvp_portali(s, a["id"].split("-", 1)[1], info)
+            a["portali_v"] = PORTALI_V
+            if info.get("stima"):
+                a["stima"] = info["stima"]
             fatte += 1
         except Exception as e:  # noqa: BLE001
             errori += 1
@@ -275,7 +349,7 @@ def pvp_normalizza(x: dict, regioni: dict) -> dict:
     if x.get("tipoLotto") == "IMMOBILI":
         cat = "immobili"
     else:
-        cat = PVP_CAT.get(cat_pvp) or classifica_testo(testo, mobile=True)
+        cat = categoria_pvp(cat_pvp, testo)
     vendita = x.get("dataOraVendita") or x.get("dataVendita")
     return {
         "id": f"pvp-{x['id']}",
@@ -657,6 +731,18 @@ class Filtri:
         imm = cfg.get("immobili") or {}
         self.imm_max = imm.get("prezzo_max")
         self.imm_regioni = {r.lower() for r in imm.get("regioni") or []}
+        self.imm_citta = {norm_luogo(c) for c in imm.get("citta") or []}
+        loc = imm.get("localita_turistiche") or {}
+        self.turistiche = {}
+        for tipo, etichetta in (("mare", "località di mare"), ("montagna", "località sciistica"), ("lago", "località di lago")):
+            for c in loc.get(tipo) or []:
+                self.turistiche[norm_luogo(c)] = etichetta
+        self.imm_citta |= set(self.turistiche)
+        self.imm_escludi = kw_regex(imm.get("escludi"))
+        # regioni dove si tiene (quasi) tutto, qualunque categoria
+        tutto = cfg.get("regioni_tutto") or {}
+        self.tutto_regioni = {r.lower() for r in tutto.get("regioni") or []}
+        self.tutto_escludi = kw_regex(tutto.get("escludi"))
 
     def parole_trovate(self, a) -> list[str]:
         if not self.kw:
@@ -666,19 +752,30 @@ class Filtri:
 
     def tieni(self, a) -> bool:
         testo = f"{a['titolo']} {a['descrizione']}".lower()
+        if a.get("categoria") == "immobili":
+            a["localita_turistica"] = self.turistiche.get(norm_luogo(a.get("citta"))) or None
         if any(p in testo for p in self.escluse):
             return False
         a["parole"] = self.parole_trovate(a)
         a["lista"] = self.lista.trova(a) or None
         if a["lista"]:
             return True
+        if self.tutto_regioni and (a.get("regione") or "").lower() in self.tutto_regioni \
+                and not (self.tutto_escludi and self.tutto_escludi.search(f"{a['titolo']} {a['descrizione']}")):
+            return True
         if a["categoria"] == "immobili":
             if "immobili" not in self.cat_attive and not a["parole"]:
                 return False
             if self.imm_max and a["prezzo_base"] and a["prezzo_base"] > self.imm_max:
                 return False
-            if self.imm_regioni and a["regione"].lower() not in self.imm_regioni:
+            if self.imm_escludi and self.imm_escludi.search(f"{a['titolo']} {a['descrizione']}"):
                 return False
+            if self.imm_regioni or self.imm_citta:
+                # passa se è in una delle regioni OPPURE in una delle città scelte
+                in_regione = a["regione"].lower() in self.imm_regioni
+                in_citta = norm_luogo(a.get("citta")) in self.imm_citta
+                if not (in_regione or in_citta):
+                    return False
             return True
         return a["categoria"] in self.cat_attive or bool(a["parole"])
 
@@ -723,10 +820,23 @@ def valuta_occasione(a, storico: dict, occ_cfg: dict, oggi_iso: str):
             motivi.append(f"prezzo sceso del {calo}% (era {euro(h[0])} il {h[1][8:10]}/{h[1][5:7]}/{h[1][:4]})")
         if not h or a["prezzo_base"] > h[0]:
             storico[k] = [a["prezzo_base"], oggi_iso] if not h else [max(h[0], a["prezzo_base"]), h[1]]
-    soglie = occ_cfg.get("prezzo_basso") or {}
-    sog = soglie.get(a["categoria"])
-    if sog and a.get("prezzo_base") and a["prezzo_base"] <= sog:
-        motivi.append(f"prezzo base sotto {euro(sog)} per {CATEGORIE_LABEL.get(a['categoria'], a['categoria']).lower()}")
+    so = a.get("stima_oro")
+    sotto_oro = bool(so and a.get("prezzo_base") and a["prezzo_base"] <= so["valore"] * float(occ_cfg.get("sotto_valore_oro", 0.85)))
+    if sotto_oro:
+        motivi.append(f"prezzo base sotto il valore del metallo (≈ {euro(so['valore'])})")
+    # prezzo rispetto al valore di stima del perito (PVP): conta quanto puoi pagare davvero (offerta minima)
+    sconto_forte = False
+    stima = a.get("stima")
+    paghi = a.get("offerta_minima") or a.get("prezzo_base")
+    if stima and paghi and stima > 0:
+        sconto = round(100 * (1 - paghi / stima))
+        a["sconto_stima"] = sconto
+        if sconto >= int(occ_cfg.get("sconto_stima_min", 40)):
+            cosa = "offerta minima" if a.get("offerta_minima") else "prezzo base"
+            motivi.append(f"{cosa} −{sconto}% sul valore di stima ({euro(stima)})")
+            sconto_forte = sconto >= int(occ_cfg.get("sconto_stima_forte", 60))
+    else:
+        a.pop("sconto_stima", None)
     raggio = occ_cfg.get("raggio_casa_km")
     casa = {r.lower() for r in occ_cfg.get("regioni_casa") or []}
     if raggio and a.get("km") is not None:
@@ -736,7 +846,7 @@ def valuta_occasione(a, storico: dict, occ_cfg: dict, oggi_iso: str):
         motivi.append(f"vicino a casa ({a['regione']})")
     if a.get("parole"):
         motivi.append("contiene: " + ", ".join(a["parole"][:4]))
-    punti = len(motivi)
+    punti = len(motivi) + (2 if sotto_oro else 0) + (2 if sconto_forte else 0)   # sconto forte sulla stima basta da solo   # comprare oro sotto il suo valore basta da solo
     a["occasione"] = {"punti": punti, "motivi": motivi} if punti >= int(occ_cfg.get("punti_min", 2)) else None
 
 
@@ -750,6 +860,10 @@ def regole_avviso(cfg):
             "regioni": {x.lower() for x in r.get("regioni") or []},
             "prezzo_max": r.get("prezzo_max"),
             "solo_occasioni": bool(r.get("solo_occasioni")),
+            "citta": {norm_luogo(c) for c in r.get("citta") or []},
+            "turistiche": bool(r.get("localita_turistiche")),
+            "escludi": kw_regex(r.get("escludi")),
+            "anno_min": int(r["anno_min"]) if r.get("anno_min") else None,
         })
     return regole
 
@@ -763,8 +877,16 @@ def regola_che_scatta(a, regole):
             continue
         if r["parole"] and not r["parole"].search(testo):
             continue
-        if r["regioni"] and a["regione"].lower() not in r["regioni"]:
+        if r["regioni"] or r["citta"] or r["turistiche"]:
+            if a["regione"].lower() not in r["regioni"] and norm_luogo(a.get("citta")) not in r["citta"] \
+                    and not (r["turistiche"] and a.get("localita_turistica")):
+                continue
+        if r["escludi"] and r["escludi"].search(testo):
             continue
+        if r["anno_min"]:
+            anno = anno_bene(testo)
+            if anno and anno < r["anno_min"]:
+                continue
         if r.get("solo_occasioni") and not a.get("occasione"):
             continue
         if r["prezzo_max"] and (a["prezzo_base"] or 0) > r["prezzo_max"]:
@@ -819,24 +941,144 @@ def quando_it(sc):
     return f"{GG_IT[d.weekday()]} {d.day} {MM_IT[d.month - 1]}" + (f" ore {sc[11:16]}" if len(sc) > 10 else "")
 
 
+def calcola_dintorni(aste: list, massimo: int) -> int:
+    """Distanze reali (mare, impianti, università, stazione) per gli immobili con coordinate, da OpenStreetMap."""
+    fatti = 0
+    for a in aste:
+        if fatti >= massimo:
+            break
+        if a.get("categoria") != "immobili" or "dintorni" in a or not (a.get("lat") and a.get("lon")):
+            continue
+        try:
+            d = extra.dintorni(float(a["lat"]), float(a["lon"]))
+        except Exception:  # noqa: BLE001
+            d = None
+        if d is None:
+            break          # Overpass non risponde: riprovo al prossimo giro
+        a["dintorni"] = d
+        fatti += 1
+        time.sleep(1.5)    # uso cortese del servizio pubblico
+    return fatti
+
+
+def aggiorna_perche(a):
+    testo = f"{a.get('titolo', '')} {a.get('descrizione', '')}"
+    anno = anno_bene(testo) if a.get("categoria") in ("auto_moto", "nautica") else None
+    a["perche"] = extra.perche_interessa(a, anno) or None
+
+
+def tra_quanto(sc):
+    try:
+        d = dt.datetime.fromisoformat(sc if len(sc) > 10 else sc + "T12:00")
+    except (TypeError, ValueError):
+        return ""
+    ore = (d - dt.datetime.now(TZ).replace(tzinfo=None)).total_seconds() / 3600
+    if ore < 0:
+        return ""
+    if ore < 24:
+        return f"tra {max(1, round(ore))} ore"
+    giorni = round(ore / 24)
+    return "domani" if giorni == 1 else f"tra {giorni} giorni"
+
+
+def titolo_breve(t: str, n: int = 90) -> str:
+    """Prima frase del titolo, accorciata: gli annunci del PVP sono spesso paragrafi interi."""
+    t = re.sub(r"\s+", " ", t or "").strip()
+    t = re.sub(r"^(?:lotto\s*(?:n\.?\s*)?[\w]+\s*[:)\-–]\s*)?(?:diritti? pari alla\s*)?"
+               r"piena propriet[aà]\s*(?:\(?1/1\)?\s*)?(?:di|del|della|dell.|su)?\s*", "", t, flags=re.I)
+    t = t[:1].upper() + t[1:]
+    frase = re.split(r"(?<=[a-z0-9àèéìòù)])[.;](?:\s|$)", t, maxsplit=1)[0]
+    t = frase if len(frase) >= 25 else t
+    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
+
+
+def motivo_breve(m: str) -> str:
+    m = re.sub(r"^prezzo base sotto € [\d.]+ per .*$", "prezzo basso per la categoria", m)
+    m = re.sub(r"\s*\((?:era |≈ |€ ).*?\)", "", m).replace("sul valore di stima", "sulla stima").replace("prezzo base sotto il valore del metallo", "sotto il valore del metallo")
+    m = m.replace("° tentativo di vendita: le precedenti sono andate deserte", "° tentativo, le altre deserte")
+    return m
+
+
 def messaggio(a, regola):
+    """Avviso compatto: titolo, prezzo, dove, quando. I link vanno nei pulsanti (vedi bottoni_avviso)."""
     e = html.escape
-    luogo = ", ".join(dict.fromkeys(x for x in [a["citta"], a["provincia"], a["regione"]] if x)) or a["tribunale"] or ""
+    icona = "⭐" if regola.startswith("Nella tua lista") else "⚡" if regola == "Occasione" else "🔔"
+    regola = regola.replace("Nella tua lista: ", "")
+    luogo = a.get("citta") or a.get("provincia") or a.get("regione") or a.get("tribunale") or ""
+    if a.get("provincia") and a.get("citta") and a["provincia"].lower() != a["citta"].lower():
+        luogo += f" ({a['provincia']})"
     if a.get("km") is not None:
-        luogo += f" · {a['km']} km da casa"
-    g = next((p for p in a.get("portali") or [] if p.get("tipo") == "V"), None)
+        luogo += f" · {a['km']} km"
+    prezzo = f"💶 <b>{euro(a['prezzo_base'])}</b>"
+    if a.get("offerta_minima") and a["offerta_minima"] != a.get("prezzo_base"):
+        prezzo += f" · min {euro(a['offerta_minima'])}"
+    if a.get("ribasso_pct"):
+        prezzo += f" · −{a['ribasso_pct']}%"
+    if a.get("stima") and a["stima"] != a.get("prezzo_base"):
+        prezzo += f" · stima {euro(a['stima'])}"
+    quando = quando_it(a.get("scadenza")).replace(" ore ", ", ")
+    tq = tra_quanto(a.get("scadenza"))
     righe = [
-        f"🔔 <b>{e(regola)}</b>",
-        f"<b>{e(a['titolo'])}</b>",
-        f"💶 Base {euro(a['prezzo_base'])}" + (f" · min {euro(a['offerta_minima'])}" if a["offerta_minima"] else "")
-        + (f" · ribasso {a['ribasso_pct']}%" if a["ribasso_pct"] else ""),
+        f"{icona} <i>{e(regola)}</i>",
+        f"<b>{e(titolo_breve(a['titolo']))}</b>",
+        (f"💡 {e(' · '.join(a['perche']))}" if a.get("perche") else None),
+        "",
+        prezzo,
+        f"🪙 metallo ≈ {euro(a['stima_oro']['valore'])}" if a.get("stima_oro") else None,
         f"📍 {e(luogo)}" if luogo else None,
-        f"⏰ chiude {quando_it(a['scadenza'])}",
-        f"🏷 {e(CATEGORIE_LABEL.get(a['categoria'], a['categoria']))} · {a['fonte']}" + (f" › {e(g['nome'])}" if g else ""),
-        ("⚡ <b>Occasione</b>: " + e("; ".join(a["occasione"]["motivi"]))) if a.get("occasione") else None,
-        (f"<a href=\"{e(g['url'])}\">Fai l'offerta su {e(g['nome'])}</a> · " if g else "") + f"<a href=\"{e(a['url'])}\">Scheda {e(a['fonte'])}</a>",
+        f"⏰ {e(quando)}" + (f" · {tq}" if tq else ""),
     ]
-    return "\n".join(r for r in righe if r)
+    if a.get("occasione"):
+        motivi = [motivo_breve(m) for m in a["occasione"]["motivi"] if not m.startswith(("contiene", "a ", "vicino"))]
+        if motivi:
+            righe += ["", "⚡ " + e(" · ".join(motivi[:2]))]
+    return "\n".join(r for r in righe if r is not None)
+
+
+def bottoni_avviso(a) -> list:
+    g = gestore_link(a)
+    riga = []
+    if g:
+        nome = re.sub(r"\.(it|com|net|eu)$", "", g["nome"])
+        riga.append({"text": f"Fai l'offerta su {nome}", "url": g["url"]})
+    if a.get("url", "").startswith("http"):
+        riga.append({"text": f"Scheda {a['fonte']}", "url": a["url"]})
+    return [riga] if riga else []
+
+
+def telegram_avviso(a, regola) -> bool:
+    """Con la foto se c'è (il testo diventa la didascalia), altrimenti messaggio normale. Link nei pulsanti."""
+    token, chats = os.environ.get("TELEGRAM_BOT_TOKEN"), telegram_chat()
+    if not token or not chats:
+        return False
+    testo = messaggio(a, regola)[:1000]
+    tastiera = json.dumps({"inline_keyboard": bottoni_avviso(a)})
+    ok = False
+    for chat in chats:
+        inviato = False
+        if a.get("immagine"):
+            try:
+                r = requests.post(f"https://api.telegram.org/bot{token}/sendPhoto", timeout=30, data={
+                    "chat_id": chat, "photo": a["immagine"], "caption": testo, "parse_mode": "HTML",
+                    "reply_markup": tastiera})
+                inviato = r.ok
+            except requests.RequestException:
+                inviato = False
+        if not inviato:   # niente foto, o Telegram non riesce a scaricarla
+            try:
+                r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", timeout=30, data={
+                    "chat_id": chat, "text": testo, "parse_mode": "HTML", "disable_web_page_preview": "true",
+                    "reply_markup": tastiera})
+                if r.status_code == 429:
+                    time.sleep(int(r.json().get("parameters", {}).get("retry_after", 5)) + 1)
+                    r = requests.post(r.request.url, timeout=30, data=r.request.body)
+                inviato = r.ok
+                if not r.ok:
+                    log(f"  Telegram errore (chat {chat}):", r.status_code, r.text[:200])
+            except requests.RequestException as ex:
+                log(f"  Telegram errore (chat {chat}):", ex)
+        ok = inviato or ok
+    return ok
 
 
 # ---------------------------------------------------------------- main
@@ -1041,7 +1283,7 @@ def main():
         prec = esistenti.get(a["id"])
         if prec:
             a["visto_il"] = prec.get("visto_il", adesso)
-            for k in ("portali", "immagine", "foto_cercata", "bando"):
+            for k in ("portali", "portali_v", "stima", "immagine", "foto_cercata", "bando", "dintorni"):
                 if prec.get(k) and not a.get(k):
                     a[k] = prec[k]
         else:
@@ -1071,9 +1313,17 @@ def main():
     # --- separa attive e chiuse
     soglia = (oggi_d - dt.timedelta(days=1)).isoformat()
     tenute, chiuse = [], []
+    utente = carica_utente()
+    seguite = set(utente.get("fav") or {}) | {k for k, v in (utente.get("stati") or {}).items()
+                                              if isinstance(v, dict) and v.get("s")}
     for a in esistenti.values():
         if a["scadenza"] and a["scadenza"][:10] < soglia:
             chiuse.append(a)
+            continue
+        # i lotti già in dashboard ripassano dai filtri attuali (categorie nuove, città, esclusioni);
+        # quelli che segui (stella o stato) restano comunque
+        riclassifica(a)
+        if not filtri.tieni(a) and a["id"] not in seguite:
             continue
         if a["fonte"] in elenco_completo and a["id"] not in elenco_completo[a["fonte"]]:
             continue
@@ -1085,6 +1335,18 @@ def main():
     if n_doppi:
         log(f"  Doppioni tra portali tolti: {n_doppi}")
     extra.assegna_km(tenute, casa_xy, stato.setdefault("coordinate", {}))
+    try:
+        prezzi_met = extra.prezzi_metalli(cfg, stato)
+        log(f"  Prezzi metalli €/g: {prezzi_met}")
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+        prezzi_met = {}
+    for a in tenute:
+        a.pop("stima_oro", None)
+        if a["categoria"] in ("orologi_gioielli", "collezionismo", "altro") and prezzi_met:
+            st = extra.stima_preziosi(f"{a['titolo']} {a['descrizione']}", prezzi_met)
+            if st:
+                a["stima_oro"] = st
     for a in tenute:
         a["parole"] = filtri.parole_trovate(a)
         a["lista"] = filtri.lista.trova(a) or None
@@ -1115,8 +1377,11 @@ def main():
         da_avvisare = [(a, regola_che_scatta(a, regole)) for a in candidati]
         da_avvisare = [(a, r) for a, r in da_avvisare if r]
         massimo = int(cfg.get("max_avvisi_per_giro", 25))
+        calcola_dintorni([a for a, _ in da_avvisare[:massimo]], massimo)
+        for a, _ in da_avvisare[:massimo]:
+            aggiorna_perche(a)
         for a, r in da_avvisare[:massimo]:
-            if telegram_invia(messaggio(a, r)):
+            if telegram_avviso(a, r):
                 inviati += 1
             time.sleep(1.1)
         resto = len(da_avvisare) - massimo
@@ -1141,6 +1406,16 @@ def main():
             stato["ultimo_riepilogo"] = oggi_d.isoformat()
     # allarme se una fonte smette di funzionare
     extra.controlla_fonti(esito_fonti, stato.setdefault("errori_fonti", {}), telegram_invia)
+
+    # --- dintorni degli altri immobili in dashboard (pochi per giro) e motivi per la dashboard
+    try:
+        n = calcola_dintorni(sorted(tenute, key=lambda a: a.get("scadenza") or "9999"), int(cfg.get("dintorni_per_giro", 30)))
+        if n:
+            log(f"  Dintorni calcolati per {n} immobili")
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+    for a in tenute:
+        aggiorna_perche(a)
 
     # --- salva
     out = {
