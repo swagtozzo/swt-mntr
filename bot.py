@@ -25,12 +25,16 @@ from pathlib import Path
 import requests
 import yaml
 
-from cifra import cifra, decifra
+import hashlib
+import time
+
+from cifra import cifra, decifra, e_cifrato
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = ROOT / "config.yaml"
 PREF = ROOT / "preferenze.json"
 PRIV = ROOT / "privato.enc"
+UTENTE = ROOT / "utente.enc"   # stelle, stati e note (gli stessi della dashboard)
 CHIAVE = os.environ.get("CHIAVE_DATI", "").strip()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 # TELEGRAM_CHAT_ID può contenere più ID separati da virgola: i comandi sono accettati da tutti,
@@ -50,8 +54,114 @@ def dati_dashboard() -> dict:
             return decifra(r.text, CHIAVE)
     return requests.get(base + "/aste.json", timeout=90).json()
 
+def url_dashboard() -> str:
+    return DATI_URL.rstrip("/").rsplit("/data", 1)[0] + "/" if DATI_URL else ""
+
+
+class Utente:
+    """utente.enc: stelle, stati e note, nello stesso formato della dashboard ({"fav": {id: {"v", "ts"}}, ...})."""
+
+    def __init__(self):
+        self.dati = {"fav": {}, "stati": {}, "note": {}}
+        self.cambiato = False
+        if UTENTE.exists():
+            t = UTENTE.read_text(encoding="utf-8")
+            self.dati = decifra(t, CHIAVE) if (CHIAVE and e_cifrato(t)) else json.loads(t)
+
+    def seguite(self) -> list:
+        fav = [(k, v.get("ts", 0)) for k, v in (self.dati.get("fav") or {}).items() if isinstance(v, dict) and v.get("v")]
+        return [k for k, _ in sorted(fav, key=lambda x: x[1])]
+
+    def segui(self, id_, on=True):
+        self.dati.setdefault("fav", {})[id_] = {"v": bool(on), "ts": int(time.time() * 1000)}
+        self.cambiato = True
+
+    def salva(self):
+        if not self.cambiato:
+            return None
+        UTENTE.write_text(cifra(self.dati, CHIAVE) if CHIAVE else json.dumps(self.dati, ensure_ascii=False), encoding="utf-8")
+        return UTENTE.name
+
+
+_DASH = {}
+
+
+def dash() -> dict:
+    if "d" not in _DASH:
+        try:
+            _DASH["d"] = dati_dashboard()
+        except Exception:  # noqa: BLE001
+            _DASH["d"] = {}
+    return _DASH["d"]
+
+
+def id_da_callback(dato: str):
+    if dato.startswith("s:"):
+        return dato[2:]
+    if dato.startswith("h:"):
+        for a in dash().get("aste", []):
+            if hashlib.sha1(a["id"].encode()).hexdigest()[:20] == dato[2:]:
+                return a["id"]
+    return None
+
+
+def id_da_messaggio(msg: dict):
+    """L'asta di un avviso: dal pulsante "Segui" (avvisi nuovi) o dai link dei pulsanti (avvisi vecchi)."""
+    righe = ((msg.get("reply_markup") or {}).get("inline_keyboard")) or []
+    bottoni = [b for r in righe for b in r]
+    for b in bottoni:
+        if b.get("callback_data"):
+            id_ = id_da_callback(b["callback_data"])
+            if id_:
+                return id_
+    urls = {b["url"] for b in bottoni if b.get("url")}
+    urls |= {x.get("url") for x in (msg.get("entities") or []) + (msg.get("caption_entities") or []) if x.get("url")}
+    if urls:
+        for a in dash().get("aste", []):
+            if a.get("url") in urls or any(p.get("url") in urls for p in a.get("portali") or []):
+                return a["id"]
+    return None
+
+
+def id_da_testo(arg: str):
+    arg = (arg or "").strip()
+    if not arg:
+        return None
+    aste = dash().get("aste", [])
+    for cand in (arg, f"pvp-{arg}"):
+        if any(a["id"] == cand for a in aste):
+            return cand
+    return None
+
+
+def titolo_asta(id_: str) -> str:
+    a = next((a for a in dash().get("aste", []) if a["id"] == id_), None)
+    if not a:
+        return id_
+    t = re.sub(r"\s+", " ", a.get("titolo") or id_)
+    return t[:80] + ("…" if len(t) > 80 else "")
+
+
+def tastiera_segui(msg: dict, id_: str, on: bool) -> str:
+    """Stessi pulsanti dell'avviso, cambia solo l'etichetta di "Segui" (resta al suo posto)."""
+    righe = ((msg.get("reply_markup") or {}).get("inline_keyboard")) or [[]]
+    testo = "★ Seguita" if on else "☆ Segui"
+    trovato = False
+    for r in righe:
+        for b in r:
+            if b.get("callback_data"):
+                b["text"], trovato = testo, True
+    if not trovato:
+        righe[-1].append({"text": testo, "callback_data": "s:" + id_})
+    return json.dumps({"inline_keyboard": righe})
+
+
 CATEGORIE = ["auto_moto", "immobili", "macchinari", "orologi_gioielli", "collezionismo", "tech", "moda_lusso", "sport_outdoor", "nautica", "arte"]
 COMANDI = [
+    ("dashboard", "Apri la dashboard (e la fisso in cima alla chat)"),
+    ("seguite", "Le aste che segui"),
+    ("segui", "Segui un'asta: rispondi a un avviso con /segui"),
+    ("smetti", "Smetti di seguire: /smetti 2 (o rispondi a un avviso)"),
     ("aiuto", "Elenco dei comandi"),
     ("stato", "Ultimo controllo, fonti e impostazioni principali"),
     ("cerca", "Cerca tra le aste attive: /cerca rolex"),
@@ -179,7 +289,60 @@ def separa_voce(lista, arg):
     return None, arg
 
 
-def esegui(cmd, arg, imp: Impostazioni, flag: dict) -> str:
+def esegui(cmd, arg, imp: Impostazioni, flag: dict, ut: "Utente" = None, msg: dict = None) -> str:
+    msg = msg or {}
+    if cmd == "dashboard":
+        u = url_dashboard()
+        if not u:
+            return "Indirizzo della dashboard non disponibile."
+        r = tg("sendMessage", chat_id=CHAT, parse_mode="HTML",
+               text=f"📊 <b>Dashboard aste</b>\n{e(u)}",
+               reply_markup=json.dumps({"inline_keyboard": [[{"text": "📊 Apri qui in Telegram", "web_app": {"url": u}}],
+                                                            [{"text": "🌐 Apri nel browser", "url": u}]]}))
+        mid = ((r or {}).get("result") or {}).get("message_id")
+        if mid:
+            tg("pinChatMessage", chat_id=CHAT, message_id=mid, disable_notification="true")
+        return ""
+
+    if cmd in ("segui", "smetti"):
+        on = cmd == "segui"
+        id_ = None
+        if msg.get("reply_to_message"):
+            id_ = id_da_messaggio(msg["reply_to_message"])
+            if not id_:
+                return "Non riesco a capire di quale asta si tratta (forse è già chiusa e non è più in dashboard)."
+        elif cmd == "smetti" and (arg or "").strip().isdigit() and 1 <= int(arg) <= len(ut.seguite()):
+            id_ = ut.seguite()[int(arg) - 1]
+        else:
+            id_ = id_da_testo(arg)
+        if not id_:
+            return ("Rispondi (tieni premuto › Rispondi) a un avviso e scrivi /" + cmd + ".\n"
+                    "Oppure: /segui 4654625 (numero PVP) · /smetti 2 (numero di /seguite).\n"
+                    "Sugli avvisi nuovi c'è anche il pulsante ☆ Segui.")
+        if on and id_ in ut.seguite():
+            return f"La segui già: {e(titolo_asta(id_))}"
+        ut.segui(id_, on)
+        return (f"⭐ Ora segui: <b>{e(titolo_asta(id_))}</b>\nTi avviso se cambiano prezzo o data, e a 48 h, 24 h e 2 h dalla chiusura."
+                if on else f"Non segui più: {e(titolo_asta(id_))}")
+
+    if cmd == "seguite":
+        ids = ut.seguite()
+        if not ids:
+            return "Non segui ancora nessuna asta. Tocca ☆ Segui sotto un avviso, oppure rispondi a un avviso con /segui."
+        per_id = {a["id"]: a for a in dash().get("aste", [])}
+        out = [f"⭐ <b>Aste che segui</b> ({len(ids)})"]
+        for i, id_ in enumerate(ids, 1):
+            a = per_id.get(id_)
+            if not a:
+                out.append(f"\n{i}. <i>{e(id_)}</i> – chiusa o non più in dashboard")
+                continue
+            g = next((p for p in a.get("portali") or [] if p.get("tipo") == "V"), None)
+            prezzo = euro(a["prezzo_base"]) if a.get("prezzo_base") else "prezzo nella scheda"
+            out.append(f"\n{i}. <a href=\"{e((g or {}).get('url') or a['url'])}\">{e(titolo_asta(id_))}</a>\n"
+                       f"   {e(prezzo)} · chiude {e((a.get('scadenza') or '?').replace('T', ' '))}")
+        out.append("\nPer toglierne una: /smetti numero")
+        return "\n".join(out)
+
     if cmd in ("start", "aiuto", "help"):
         return "<b>Comandi del monitor aste</b>\n" + "\n".join(f"/{c} – {e(d)}" for c, d in COMANDI) + \
                "\n\nLe modifiche valgono dal prossimo controllo dei portali (o subito con /aggiorna)."
@@ -398,7 +561,7 @@ def main():
     if not TOKEN or not CHATS:
         print("TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID mancanti")
         sys.exit(0)
-    r = tg("getUpdates", timeout=0, allowed_updates=json.dumps(["message"]))
+    r = tg("getUpdates", timeout=0, allowed_updates=json.dumps(["message", "callback_query"]))
     upd = r.get("result") or []
     if not upd:
         output("modificato", "false"); output("aggiorna", "false"); output("conferma", ""); output("file", "")
@@ -406,8 +569,26 @@ def main():
     # menù dei comandi (una volta ogni tanto non fa male)
     tg("setMyCommands", commands=json.dumps([{"command": c, "description": d[:250]} for c, d in COMANDI]))
     imp = Impostazioni()
+    ut = Utente()
     flag = {"aggiorna": False}
     for u in upd:
+        cb = u.get("callback_query")
+        if cb:
+            # pulsante "☆ Segui" sotto un avviso
+            msg = cb.get("message") or {}
+            chat = str((msg.get("chat") or {}).get("id") or (cb.get("from") or {}).get("id"))
+            if chat not in CHATS:
+                continue
+            id_ = id_da_callback(cb.get("data") or "")
+            if not id_:
+                tg("answerCallbackQuery", callback_query_id=cb["id"], text="Asta non trovata (forse è già chiusa).")
+                continue
+            on = id_ not in ut.seguite()
+            ut.segui(id_, on)
+            tg("answerCallbackQuery", callback_query_id=cb["id"], text="⭐ La segui" if on else "Non la segui più")
+            if msg.get("message_id"):
+                tg("editMessageReplyMarkup", chat_id=chat, message_id=msg["message_id"], reply_markup=tastiera_segui(msg, id_, on))
+            continue
         msg = u.get("message") or {}
         mittente = str((msg.get("chat") or {}).get("id"))
         if mittente not in CHATS:
@@ -415,16 +596,19 @@ def main():
         CHAT = mittente
         testo = (msg.get("text") or "").strip()
         m = re.match(r"^/([A-Za-zàèéìòù_]+)(?:@\w+)?\s*(.*)$", testo, re.S)
+        if not m and msg.get("reply_to_message") and testo.lower() in ("segui", "smetti", "⭐", "★"):
+            m = re.match(r"(\w+)()", "smetti" if testo.lower() == "smetti" else "segui")
         if not m:
             rispondi("Usa i comandi: scrivi /aiuto per l'elenco.")
             continue
         prima = imp.cambiato
         imp.cambiato = False
         try:
-            risposta = esegui(m.group(1).lower(), m.group(2).strip(), imp, flag)
+            risposta = esegui(m.group(1).lower(), m.group(2).strip(), imp, flag, ut, msg)
         except Exception as ex:  # noqa: BLE001
             risposta = "Errore nell'eseguire il comando: " + e(ex)
-        rispondi(risposta)
+        if risposta:
+            rispondi(risposta)
         if imp.cambiato:
             chi = (msg.get("from") or {}).get("first_name") or mittente
             for altro in CHATS:
@@ -433,10 +617,11 @@ def main():
                        text=f"ℹ️ <b>{e(chi)}</b> ha cambiato le impostazioni: <code>{e(testo[:200])}</code>")
         imp.cambiato = imp.cambiato or prima
     file_salvato = imp.salva()
+    file_utente = ut.salva()
     if imp.cambiato:
         flag["aggiorna"] = True
-    output("modificato", "true" if imp.cambiato else "false")
-    output("file", file_salvato or "")
+    output("modificato", "true" if (imp.cambiato or ut.cambiato) else "false")
+    output("file", " ".join(f for f in (file_salvato, file_utente) if f))
     output("aggiorna", "true" if flag["aggiorna"] else "false")
     output("conferma", str(upd[-1]["update_id"] + 1))
 

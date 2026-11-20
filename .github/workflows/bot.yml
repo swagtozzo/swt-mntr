@@ -41,8 +41,8 @@ jobs:
         run: |
           git config user.name "monitor-aste-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${{ steps.bot.outputs.file }}"
-          git commit -m "Impostazioni aggiornate dal bot Telegram"
+          git add ${{ steps.bot.outputs.file }}
+          git commit -m "Impostazioni o aste seguite aggiornate dal bot Telegram"
           git pull --rebase --quiet
           git push
 

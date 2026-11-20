@@ -195,6 +195,60 @@ def promemoria(aste: list, utente: dict, inviati: dict, adesso: dt.datetime, inv
     return n
 
 
+def dati_segui(id_: str) -> str:
+    """callback_data del pulsante "Segui" (Telegram accetta al massimo 64 byte)."""
+    import hashlib
+    return "s:" + id_ if len(("s:" + id_).encode()) <= 64 else "h:" + hashlib.sha1(id_.encode()).hexdigest()[:20]
+
+
+def aste_seguite(utente: dict) -> set:
+    stati = {k: v.get("s") for k, v in (utente.get("stati") or {}).items() if isinstance(v, dict)}
+    fav = {k for k, v in (utente.get("fav") or {}).items() if (v.get("v") if isinstance(v, dict) else v)}
+    return fav | {k for k, s in stati.items() if s in SEGUITE}
+
+
+def variazioni_seguite(aste: list, utente: dict, foto: dict, invia, euro) -> int:
+    """Avvisa quando su un'asta che segui cambia qualcosa: prezzo, offerta minima, ribasso, data,
+    oppure quando sparisce dalle aste aperte. `foto` (nello stato) ricorda com'era al giro prima."""
+    seguite = aste_seguite(utente)
+    per_id = {a["id"]: a for a in aste}
+    campi = (("prezzo_base", "Prezzo base", euro), ("offerta_minima", "Offerta minima", euro),
+             ("ribasso_pct", "Ribasso", lambda v: f"{v}%"), ("scadenza", "Chiusura", lambda v: (v or "—").replace("T", " ore ")))
+    n = 0
+    for id_ in sorted(seguite | set(foto)):
+        a, prima = per_id.get(id_), foto.get(id_)
+        if id_ not in seguite:
+            foto.pop(id_, None)          # non la segui più
+            continue
+        if not a:
+            if prima:
+                fine = prima.get("scadenza") or ""
+                chiusa = bool(fine) and fine[:10] <= dt.date.today().isoformat()
+                testo = (f"🏁 <b>Asta chiusa</b>: {html.escape(prima.get('t', id_)[:150])}\nL'esito è sulla scheda del portale."
+                         if chiusa else
+                         f"⚠️ <b>Non è più tra le aste aperte</b>: {html.escape(prima.get('t', id_)[:150])}\n"
+                         "Potrebbe essere stata sospesa, rinviata o ritirata: controlla la scheda.")
+                if prima.get("u"):
+                    testo += f"\n<a href=\"{html.escape(prima['u'])}\">Apri la scheda</a>"
+                if invia(testo):
+                    n += 1
+                foto.pop(id_, None)
+            continue
+        ora = {k: a.get(k) for k, _, _ in campi}
+        ora.update(t=a.get("titolo", ""), u=a.get("url", ""))
+        if prima:
+            diff = [f"{nome}: {fmt(prima.get(k)) if prima.get(k) is not None else '—'} → <b>{fmt(ora[k]) if ora[k] is not None else '—'}</b>"
+                    for k, nome, fmt in campi if prima.get(k) != ora[k] and ora[k] is not None]
+            if diff:
+                g = next((p for p in a.get("portali") or [] if p.get("tipo") == "V"), None)
+                righe = ["🔁 <b>Novità su un'asta che segui</b>", f"<b>{html.escape(a['titolo'][:150])}</b>", *diff,
+                         f"<a href=\"{html.escape((g or {}).get('url') or a['url'])}\">Apri l'asta</a>"]
+                if invia("\n".join(righe)):
+                    n += 1
+        foto[id_] = ora
+    return n
+
+
 # ---------------------------------------------------------------- allarmi sulle fonti
 
 def controlla_fonti(esito: dict, errori: dict, invia, soglia: int = 3):
@@ -371,6 +425,8 @@ def pesi_nel_testo(t: str, anche_kg: bool):
         prima, dopo = t[max(0, m.start() - 40):m.start()], t[m.end():m.end() + 12]
         if RX_CARATI.search(prima[-6:]) or RX_CARATI_DOPO.match(dopo):
             continue   # "ct 0,50" / "18 kt": carati, non peso
+        if re.search(r"/\s*$", prima) or re.match(r"\s*(?:/|‰|°/°)", dopo):
+            continue   # "750/1000 gr. 1,66": titolo in millesimi, non peso
         v = _num(m.group(0))
         if v is None:
             continue
@@ -382,7 +438,7 @@ def pesi_nel_testo(t: str, anche_kg: bool):
     pesi = tot[:1] if tot else [p for p, _ in pesi]
     # "argento 925 gr 2.300": il 925 è il titolo, non un peso
     if len(pesi) > 1:
-        pesi = [p for p in pesi if p not in (375, 585, 750, 800, 916, 925, 999)] or pesi
+        pesi = [p for p in pesi if p not in (375, 585, 750, 800, 916, 925, 999, 1000)] or pesi
     return pesi
 
 
@@ -463,6 +519,10 @@ def stima_preziosi(testo: str, prezzi: dict) -> dict | None:
         return None
     grammi = sum(pesi)
     metallo = "oro" if oro else "argento"
+    # controllo di buon senso: un singolo gioiello d'oro non pesa centinaia di grammi
+    if metallo == "oro" and grammi > 300 and re.search(r"\b(?:anell|fede|bracciale|collan|orecchin|ciondol|spill|catenin)", t, re.I) \
+            and not re.search(r"\b(?:lotto di|n\.\s*\d{2,}|stock|insieme di|complessiv)", t, re.I):
+        return None
     if metallo == "oro":
         purezza, presunto = 0.750, True
         for rx, pu in TITOLI_ORO:

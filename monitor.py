@@ -981,13 +981,23 @@ def tra_quanto(sc):
     return "domani" if giorni == 1 else f"tra {giorni} giorni"
 
 
+ABBREVIAZIONI = {"nr", "num", "mod", "art", "matr", "tel", "rif", "cod", "tip", "sig", "lt", "ecc", "fg", "part", "sub", "cat", "rep", "mapp", "foglio", "kw", "cil", "imm", "targa", "tg", "telaio"}
+
+
 def titolo_breve(t: str, n: int = 90) -> str:
     """Prima frase del titolo, accorciata: gli annunci del PVP sono spesso paragrafi interi."""
     t = re.sub(r"\s+", " ", t or "").strip()
     t = re.sub(r"^(?:lotto\s*(?:n\.?\s*)?[\w]+\s*[:)\-–]\s*)?(?:diritti? pari alla\s*)?"
                r"piena propriet[aà]\s*(?:\(?1/1\)?\s*)?(?:di|del|della|dell.|su)?\s*", "", t, flags=re.I)
     t = t[:1].upper() + t[1:]
-    frase = re.split(r"(?<=[a-z0-9àèéìòù)])[.;](?:\s|$)", t, maxsplit=1)[0]
+    frase = t
+    for m in re.finditer(r"(?<=[a-z0-9àèéìòù)])[.;](?:\s|$)", t):
+        parola = re.search(r"(\w+)$", t[:m.start()])
+        # "n. 1", "gr. 1,66", "mod. X", "matr. 123": abbreviazioni, non fine frase
+        if m.group(0)[0] == "." and parola and (len(parola.group(1)) <= 2 or parola.group(1).lower() in ABBREVIAZIONI):
+            continue
+        frase = t[:m.start()]
+        break
     t = frase if len(frase) >= 25 else t
     return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
 
@@ -1043,7 +1053,9 @@ def bottoni_avviso(a) -> list:
         riga.append({"text": f"Fai l'offerta su {nome}", "url": g["url"]})
     if a.get("url", "").startswith("http"):
         riga.append({"text": f"Scheda {a['fonte']}", "url": a["url"]})
-    return [riga] if riga else []
+    # "Segui": il bot lo legge (entro 5 minuti), mette la stella in dashboard e da lì partono promemoria e aggiornamenti
+    riga.append({"text": "☆ Segui", "callback_data": extra.dati_segui(a["id"])})
+    return [riga]
 
 
 def telegram_avviso(a, regola) -> bool:
@@ -1414,6 +1426,13 @@ def main():
             n = extra.promemoria(tenute, carica_utente(), stato.setdefault("promemoria", {}), adesso_dt, telegram_invia, euro)
             if n:
                 log(f"  Promemoria inviati: {n}")
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+        # novità sulle aste che segui (prezzo, data, ribasso, chiusura)
+        try:
+            n = extra.variazioni_seguite(tenute, carica_utente(), stato.setdefault("seguite_foto", {}), telegram_invia, euro)
+            if n:
+                log(f"  Aggiornamenti su aste seguite: {n}")
         except Exception:  # noqa: BLE001
             traceback.print_exc()
         # riepilogo del mattino
